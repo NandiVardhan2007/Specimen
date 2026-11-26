@@ -67,6 +67,13 @@ pub fn normalize_and_save_item<D: Serialize>(
             LibraryError::Core(specimen_core::CoreError::Serialization(e.to_string()))
         })?;
 
+        let similar_to = crate::similarity::find_similar_items(
+            library_root,
+            opts.item_type,
+            &item_id,
+            &raw_data_val,
+        );
+
         let new_item = Item {
             schema: "specimen.item/1".to_string(),
             id: item_id.clone(),
@@ -79,7 +86,7 @@ pub fn normalize_and_save_item<D: Serialize>(
             provenance: vec![opts.provenance],
             license: opts.license,
             confidence: opts.confidence,
-            similar_to: Vec::new(),
+            similar_to,
             annotations: None,
             user: UserMeta::default(),
             previews: Vec::new(),

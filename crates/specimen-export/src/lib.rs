@@ -6,15 +6,19 @@ pub mod css;
 pub mod dtcg;
 pub mod error;
 pub mod loader;
+pub mod scss;
 pub mod tailwind;
+pub mod tokens_studio;
 
 pub use css::{export_css, CssExportInput};
 pub use dtcg::{export_dtcg, DtcgExportInput};
 pub use error::{ExportError, Result};
 pub use loader::{load_library_tokens, LoadedTokens};
+pub use scss::{export_scss, ScssExportInput};
 pub use specimen_core as core;
 pub use specimen_library as library;
 pub use tailwind::{export_tailwind, TailwindExportInput};
+pub use tokens_studio::{export_tokens_studio, TokensStudioExportInput};
 
 use std::path::Path;
 
@@ -32,6 +36,28 @@ pub fn export_tokens_to_string(library_root: &Path, format: &str) -> Result<Stri
                 theme: tokens.theme.as_ref(),
             };
             Ok(serde_json::to_string_pretty(&export_dtcg(&input))?)
+        }
+        "tokens-studio" => {
+            let input = TokensStudioExportInput {
+                palette: tokens
+                    .light_palette
+                    .as_ref()
+                    .or(tokens.dark_palette.as_ref()),
+                typography: tokens.typography.as_ref(),
+                theme: tokens.theme.as_ref(),
+            };
+            Ok(serde_json::to_string_pretty(&export_tokens_studio(&input))?)
+        }
+        "scss" => {
+            let input = ScssExportInput {
+                palette: tokens
+                    .light_palette
+                    .as_ref()
+                    .or(tokens.dark_palette.as_ref()),
+                typography: tokens.typography.as_ref(),
+                theme: tokens.theme.as_ref(),
+            };
+            Ok(export_scss(&input))
         }
         "tailwind" => {
             let input = TailwindExportInput {

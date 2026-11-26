@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use url::Url;
@@ -17,8 +18,8 @@ use specimen_extract::{
     TypographyExtractor,
 };
 use specimen_library::{
-    generate_design_md, init_library, normalize_and_save_item, validate_library, DesignDocMeta,
-    NormalizeOptions,
+    generate_design_md, init_library, migrate_library, normalize_and_save_item, validate_library,
+    DesignDocMeta, NormalizeOptions,
 };
 use specimen_mcp::{McpServer, McpServerConfig};
 use specimen_server::run_server;
@@ -115,9 +116,9 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
-    /// Export design tokens into CSS variables, Tailwind, or W3C DTCG format
+    /// Export design tokens into CSS variables, Tailwind, DTCG, SCSS, or Tokens Studio format
     Export {
-        /// Export format: css, dtcg, tailwind, tailwind-v3
+        /// Export format: css, dtcg, tailwind, tailwind-v3, scss, tokens-studio
         #[arg(short, long, default_value = "css")]
         format: String,
 
@@ -194,6 +195,17 @@ enum Commands {
         /// Enable the capture_url tool in MCP (disabled by default)
         #[arg(long, default_value_t = false)]
         allow_capture: bool,
+    },
+    /// Migrate library item schemas and formats to current standard
+    Migrate {
+        /// Target library root path
+        #[arg(short, long, default_value = ".")]
+        library: PathBuf,
+    },
+    /// Generate shell completion scripts (bash, zsh, fish, powershell)
+    Completions {
+        /// Shell to generate completions for
+        shell: Shell,
     },
 }
 
@@ -618,60 +630,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             library,
             out,
         }) => {
-            let tokens = specimen_export::load_library_tokens(&library)?;
-            let output_str = match format.to_lowercase().as_str() {
-                "css" => {
-                    let input = specimen_export::CssExportInput {
-                        light_palette: tokens.light_palette.as_ref(),
-                        dark_palette: tokens.dark_palette.as_ref(),
-                        typography: tokens.typography.as_ref(),
-                        theme: tokens.theme.as_ref(),
-                    };
-                    specimen_export::export_css(&input)
-                }
-                "dtcg" => {
-                    let input = specimen_export::DtcgExportInput {
-                        palette: tokens
-                            .light_palette
-                            .as_ref()
-                            .or(tokens.dark_palette.as_ref()),
-                        typography: tokens.typography.as_ref(),
-                        theme: tokens.theme.as_ref(),
-                    };
-                    serde_json::to_string_pretty(&specimen_export::export_dtcg(&input))?
-                }
-                "tailwind" => {
-                    let input = specimen_export::TailwindExportInput {
-                        palette: tokens
-                            .light_palette
-                            .as_ref()
-                            .or(tokens.dark_palette.as_ref()),
-                        typography: tokens.typography.as_ref(),
-                        theme: tokens.theme.as_ref(),
-                        version: 4,
-                    };
-                    specimen_export::export_tailwind(&input)
-                }
-                "tailwind-v3" => {
-                    let input = specimen_export::TailwindExportInput {
-                        palette: tokens
-                            .light_palette
-                            .as_ref()
-                            .or(tokens.dark_palette.as_ref()),
-                        typography: tokens.typography.as_ref(),
-                        theme: tokens.theme.as_ref(),
-                        version: 3,
-                    };
-                    specimen_export::export_tailwind(&input)
-                }
-                other => {
-                    eprintln!(
-                        "Unknown export format: {}. Supported: css, dtcg, tailwind, tailwind-v3",
-                        other
-                    );
-                    std::process::exit(2);
-                }
-            };
+            let output_str = specimen_export::export_tokens_to_string(&library, &format)
+                .map_err(|e| format!("Failed to export tokens: {}", e))?;
 
             if let Some(out_path) = out {
                 if let Some(parent) = out_path.parent() {
@@ -808,6 +768,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let server = McpServer::new(config);
             server.run_stdio()?;
+        }
+        Some(Commands::Migrate { library }) => {
+            println!(
+                "==> Migrating design library items at: {}",
+                library.display()
+            );
+            let report = migrate_library(&library)?;
+            println!("✨ Migration complete!");
+            println!("   Items checked: {}", report.items_checked);
+            println!("   Items upgraded: {}", report.items_migrated);
+            if !report.errors.is_empty() {
+                println!("   Errors: {}", report.errors.len());
+                for e in &report.errors {
+                    println!("     - {}", e);
+                }
+            }
+        }
+        Some(Commands::Completions { shell }) => {
+            let mut cmd = Cli::command();
+            generate(shell, &mut cmd, "specimen", &mut std::io::stdout());
         }
         None => {
             println!(
