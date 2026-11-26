@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Icons All Kinds Fixture</title>
+  <style>
+    body { font-family: sans-serif; display: flex; gap: 24px; padding: 40px; background: #0f172a; color: #f8fafc; }
+    .icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; }
+  </style>
+</head>
+<body>
+  <!-- Inline SVG: Search -->
+  <svg class="icon icon-search" viewBox="0 0 24 24">
+    <circle cx="11" cy="11" r="8"></circle>
+    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+  </svg>
+
+  <!-- Inline SVG: Close -->
+  <svg class="icon icon-close" viewBox="0 0 24 24">
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+
+  <!-- Inline SVG: Check -->
+  <svg class="icon icon-check" viewBox="0 0 24 24">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg>
+
+  <!-- SVG Sprite Definition and Use -->
+  <svg style="display: none;">
+    <symbol id="icon-star" viewBox="0 0 24 24">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+    </symbol>
+  </svg>
+  <svg class="icon"><use href="#icon-star"></use></svg>
+</body>
+</html>

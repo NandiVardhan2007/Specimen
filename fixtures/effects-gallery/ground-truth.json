@@ -1,0 +1,20 @@
+{
+  "fixture": "effects-gallery",
+  "effects": [
+    {
+      "category": "shadow",
+      "recipe": "elevation-md",
+      "css": "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+    },
+    {
+      "category": "gradient",
+      "recipe": "linear-gradient",
+      "css": "linear-gradient(135deg, #7c5cff, #ff5caa)"
+    },
+    {
+      "category": "glass",
+      "recipe": "glassmorphism",
+      "css": "blur(12px)"
+    }
+  ]
+}

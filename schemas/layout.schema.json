@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LayoutData",
+  "type": "object",
+  "required": [
+    "display",
+    "section_type"
+  ],
+  "properties": {
+    "columns": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "display": {
+      "type": "string"
+    },
+    "gap_px": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "section_type": {
+      "type": "string"
+    },
+    "wireframe_svg": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

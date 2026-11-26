@@ -6,6 +6,7 @@ pub mod css;
 pub mod dtcg;
 pub mod error;
 pub mod loader;
+pub mod tailwind;
 
 pub use css::{export_css, CssExportInput};
 pub use dtcg::{export_dtcg, DtcgExportInput};
@@ -13,3 +14,4 @@ pub use error::{ExportError, Result};
 pub use loader::{load_library_tokens, LoadedTokens};
 pub use specimen_core as core;
 pub use specimen_library as library;
+pub use tailwind::{export_tailwind, TailwindExportInput};

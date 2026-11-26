@@ -8,10 +8,16 @@ use crate::error::{CoreError, Result};
 use crate::id::ItemId;
 use crate::path::RelPath;
 
+pub mod effect;
+pub mod icon;
+pub mod layout;
 pub mod palette;
 pub mod theme;
 pub mod typography;
 
+pub use effect::EffectData;
+pub use icon::{IconData, IconSetInfo};
+pub use layout::LayoutData;
 pub use palette::{ColorUsage, ContrastPair, PaletteColor, PaletteData};
 pub use theme::ThemeData;
 pub use typography::{FontFamily, FontFileMeta, FontLicenseHints, TypeScaleEntry, TypographyData};

@@ -67,8 +67,16 @@ enum Commands {
     },
     /// Search the design library
     Search {
-        /// Search query
+        /// Search query (supports filters: type: tag: source: license: scheme:)
         query: String,
+
+        /// Library root path
+        #[arg(short, long, default_value = ".")]
+        library: PathBuf,
+
+        /// Output results as JSON
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
     /// Validate design library files, item schemas, and content integrity
     Validate {
@@ -80,9 +88,9 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
-    /// Export design tokens into CSS variables or W3C DTCG format
+    /// Export design tokens into CSS variables, Tailwind, or W3C DTCG format
     Export {
-        /// Export format: css, dtcg
+        /// Export format: css, dtcg, tailwind, tailwind-v3
         #[arg(short, long, default_value = "css")]
         format: String,
 
@@ -351,8 +359,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 source_dir.display()
             );
         }
-        Some(Commands::Search { query }) => {
-            println!("specimen search {} (search index in progress)", query);
+        Some(Commands::Search {
+            query,
+            library,
+            json,
+        }) => {
+            let filter = specimen_library::SearchIndex::parse_query(&query);
+            let hits = specimen_library::SearchIndex::search(&library, &filter)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&hits)?);
+            } else if hits.is_empty() {
+                println!("No items found matching '{}'", query);
+            } else {
+                println!("Found {} item(s) matching '{}':\n", hits.len(), query);
+                println!(
+                    "{:<36} {:<12} {:<14} {:<8}",
+                    "Item ID", "Type", "License", "Score"
+                );
+                println!("{:-<76}", "");
+                for hit in hits {
+                    let lic_str = match hit.license_status {
+                        specimen_core::LicenseStatus::Reusable => "reusable",
+                        specimen_core::LicenseStatus::ReferenceOnly => "reference",
+                        specimen_core::LicenseStatus::Unknown => "unknown",
+                    };
+                    println!(
+                        "{:<36} {:<12} {:<14} {:.2}",
+                        hit.id.as_str(),
+                        hit.item_type.to_string(),
+                        lic_str,
+                        hit.score
+                    );
+                }
+            }
         }
         Some(Commands::Validate { path, json }) => {
             let report = validate_library(&path)?;
@@ -414,8 +453,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     serde_json::to_string_pretty(&specimen_export::export_dtcg(&input))?
                 }
+                "tailwind" => {
+                    let input = specimen_export::TailwindExportInput {
+                        palette: tokens
+                            .light_palette
+                            .as_ref()
+                            .or(tokens.dark_palette.as_ref()),
+                        typography: tokens.typography.as_ref(),
+                        theme: tokens.theme.as_ref(),
+                        version: 4,
+                    };
+                    specimen_export::export_tailwind(&input)
+                }
+                "tailwind-v3" => {
+                    let input = specimen_export::TailwindExportInput {
+                        palette: tokens
+                            .light_palette
+                            .as_ref()
+                            .or(tokens.dark_palette.as_ref()),
+                        typography: tokens.typography.as_ref(),
+                        theme: tokens.theme.as_ref(),
+                        version: 3,
+                    };
+                    specimen_export::export_tailwind(&input)
+                }
                 other => {
-                    eprintln!("Unknown export format: {}. Supported: css, dtcg", other);
+                    eprintln!(
+                        "Unknown export format: {}. Supported: css, dtcg, tailwind, tailwind-v3",
+                        other
+                    );
                     std::process::exit(2);
                 }
             };

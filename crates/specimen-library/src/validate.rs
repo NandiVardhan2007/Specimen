@@ -6,7 +6,8 @@ use std::fs;
 use std::path::Path;
 
 use specimen_core::{
-    to_canonical_json, Config, Item, ItemId, ItemType, PaletteData, ThemeData, TypographyData,
+    to_canonical_json, Config, EffectData, IconData, Item, ItemId, ItemType, LayoutData,
+    PaletteData, ThemeData, TypographyData,
 };
 
 use crate::error::Result;
@@ -185,6 +186,36 @@ fn validate_item_file(
             if let Err(e) = serde_json::from_value::<ThemeData>(item.data) {
                 report.errors.push(format!(
                     "{}: ThemeData schema validation failed: {}",
+                    item_file.display(),
+                    e
+                ));
+                item_valid = false;
+            }
+        }
+        ItemType::Icon => {
+            if let Err(e) = serde_json::from_value::<IconData>(item.data) {
+                report.errors.push(format!(
+                    "{}: IconData schema validation failed: {}",
+                    item_file.display(),
+                    e
+                ));
+                item_valid = false;
+            }
+        }
+        ItemType::Effect => {
+            if let Err(e) = serde_json::from_value::<EffectData>(item.data) {
+                report.errors.push(format!(
+                    "{}: EffectData schema validation failed: {}",
+                    item_file.display(),
+                    e
+                ));
+                item_valid = false;
+            }
+        }
+        ItemType::Layout => {
+            if let Err(e) = serde_json::from_value::<LayoutData>(item.data) {
+                report.errors.push(format!(
+                    "{}: LayoutData schema validation failed: {}",
                     item_file.display(),
                     e
                 ));

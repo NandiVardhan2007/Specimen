@@ -1,0 +1,10 @@
+{
+  "fixture": "icons-all-kinds",
+  "icons": [
+    { "name": "search", "kind": "inline", "has_current_color": true },
+    { "name": "close", "kind": "inline", "has_current_color": true },
+    { "name": "check", "kind": "inline", "has_current_color": true },
+    { "name": "star", "kind": "sprite", "has_current_color": true }
+  ],
+  "total_unique": 4
+}

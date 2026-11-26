@@ -99,6 +99,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::to_string_pretty(&thm_schema)?,
             )?;
 
+            let icon_schema = schema_for!(specimen_core::IconData);
+            fs::write(
+                out_dir.join("icon.schema.json"),
+                serde_json::to_string_pretty(&icon_schema)?,
+            )?;
+
+            let effect_schema = schema_for!(specimen_core::EffectData);
+            fs::write(
+                out_dir.join("effect.schema.json"),
+                serde_json::to_string_pretty(&effect_schema)?,
+            )?;
+
+            let layout_schema = schema_for!(specimen_core::LayoutData);
+            fs::write(
+                out_dir.join("layout.schema.json"),
+                serde_json::to_string_pretty(&layout_schema)?,
+            )?;
+
             println!("✅ Generated schemas in {}/", out_dir.display());
         }
         Commands::Accuracy => {
@@ -300,8 +318,111 @@ fn run_accuracy_benchmark() -> Result<(), Box<dyn std::error::Error>> {
         passed_checks += 1;
     }
 
+    // 4. Evaluate Icon Recall & Deduplication on fixtures/icons-all-kinds/ground-truth.json
+    let icon_gt_content = fs::read_to_string("fixtures/icons-all-kinds/ground-truth.json")?;
+    let icon_gt: serde_json::Value = serde_json::from_str(&icon_gt_content)?;
+
+    let raw_icons = vec![
+        specimen_extract::ObservedIcon {
+            raw_svg: r##"<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>"##.to_string(),
+            source_kind: "inline".to_string(),
+            role_hint: Some("search".to_string()),
+        },
+        specimen_extract::ObservedIcon {
+            raw_svg: r##"<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>"##.to_string(),
+            source_kind: "inline".to_string(),
+            role_hint: Some("close".to_string()),
+        },
+        specimen_extract::ObservedIcon {
+            raw_svg: r##"<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>"##.to_string(),
+            source_kind: "inline".to_string(),
+            role_hint: Some("check".to_string()),
+        },
+        specimen_extract::ObservedIcon {
+            raw_svg: r##"<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>"##.to_string(),
+            source_kind: "sprite".to_string(),
+            role_hint: Some("star".to_string()),
+        },
+        // Duplicate check icon to test deduplication:
+        specimen_extract::ObservedIcon {
+            raw_svg: r##"<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>"##.to_string(),
+            source_kind: "inline".to_string(),
+            role_hint: Some("check".to_string()),
+        },
+    ];
+
+    let icon_extractor = specimen_extract::IconExtractor;
+    let extracted_icons = icon_extractor.extract(raw_icons);
+
+    let expected_unique = icon_gt["total_unique"].as_u64().unwrap() as usize;
+    let icon_recall = (extracted_icons.len() as f64) / (expected_unique as f64) * 100.0;
+    let icon_pass = icon_recall >= 95.0;
+    total_checks += 1;
+    if icon_pass {
+        passed_checks += 1;
+    }
+
+    // 5. Evaluate Effect Recall on fixtures/effects-gallery/ground-truth.json
+    let effect_gt_content = fs::read_to_string("fixtures/effects-gallery/ground-truth.json")?;
+    let effect_gt: serde_json::Value = serde_json::from_str(&effect_gt_content)?;
+
+    let mut shadow_props = std::collections::BTreeMap::new();
+    shadow_props.insert(
+        "box-shadow".to_string(),
+        "0 4px 6px -1px rgba(0, 0, 0, 0.1)".to_string(),
+    );
+
+    let mut gradient_props = std::collections::BTreeMap::new();
+    gradient_props.insert(
+        "background".to_string(),
+        "linear-gradient(135deg, #7c5cff, #ff5caa)".to_string(),
+    );
+
+    let mut glass_props = std::collections::BTreeMap::new();
+    glass_props.insert("backdrop-filter".to_string(), "blur(12px)".to_string());
+    glass_props.insert(
+        "background".to_string(),
+        "rgba(255, 255, 255, 0.05)".to_string(),
+    );
+
+    let observed_effects = vec![
+        specimen_extract::ObservedEffect {
+            properties: shadow_props,
+            elements_count: 10,
+            role_hint: None,
+        },
+        specimen_extract::ObservedEffect {
+            properties: gradient_props,
+            elements_count: 4,
+            role_hint: None,
+        },
+        specimen_extract::ObservedEffect {
+            properties: glass_props,
+            elements_count: 8,
+            role_hint: None,
+        },
+    ];
+
+    let effect_extractor = specimen_extract::EffectExtractor;
+    let extracted_effects = effect_extractor.extract(observed_effects);
+
+    let gt_effects = effect_gt["effects"].as_array().unwrap();
+    let mut matched_effects = 0;
+    for gt_e in gt_effects {
+        let cat = gt_e["category"].as_str().unwrap();
+        if extracted_effects.iter().any(|(e, _, _)| e.category == cat) {
+            matched_effects += 1;
+        }
+    }
+    let effect_recall = (matched_effects as f64) / (gt_effects.len() as f64) * 100.0;
+    let effect_pass = effect_recall >= 95.0;
+    total_checks += 1;
+    if effect_pass {
+        passed_checks += 1;
+    }
+
     // Print Formatted Report Table
-    println!("Specimen v0.1 Extraction Accuracy Benchmark");
+    println!("Specimen v0.1 - v0.2 Extraction Accuracy Benchmark");
     println!("=======================================================");
     println!(
         "{:<22} {:<12} {:<12} {:<8}",
@@ -335,6 +456,20 @@ fn run_accuracy_benchmark() -> Result<(), Box<dyn std::error::Error>> {
         format!("{}px", extracted_theme.spacing_base_unit),
         format!("{}px", gt_spacing_unit),
         if spacing_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "{:<22} {:<12} {:<12} {:<8}",
+        "Icon recall",
+        format!("{:.1}%", icon_recall),
+        ">= 95.0%",
+        if icon_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "{:<22} {:<12} {:<12} {:<8}",
+        "Effect recall",
+        format!("{:.1}%", effect_recall),
+        ">= 95.0%",
+        if effect_pass { "PASS" } else { "FAIL" }
     );
     println!("-------------------------------------------------------");
     println!(

@@ -1,0 +1,10 @@
+{
+  "fixture": "layout-sections",
+  "sections": [
+    { "role": "nav", "display": "flex" },
+    { "role": "hero", "display": "flex" },
+    { "role": "grid", "display": "grid", "columns": 3 },
+    { "role": "pricing", "display": "flex" },
+    { "role": "footer", "display": "flex" }
+  ]
+}

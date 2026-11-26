@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Effects Gallery Fixture</title>
+  <style>
+    body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; display: flex; gap: 24px; }
+    .shadow-card {
+      width: 200px; height: 120px; background: #1e293b; border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .gradient-card {
+      width: 200px; height: 120px; border-radius: 8px;
+      background: linear-gradient(135deg, #7c5cff, #ff5caa);
+    }
+    .glass-card {
+      width: 200px; height: 120px;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shadow-card">Shadow Card</div>
+  <div class="gradient-card">Gradient Card</div>
+  <div class="glass-card">Glass Card</div>
+</body>
+</html>
