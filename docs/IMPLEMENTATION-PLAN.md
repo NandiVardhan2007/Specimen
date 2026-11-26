@@ -108,14 +108,14 @@ gantt
 
 **Exit criteria (release gate):**
 
-- [ ] Fixture accuracy: color recall ≥ 98%, font recall 100%, type scale ≥ 95%, spacing unit correct.
-- [ ] Determinism test passes (5 runs, identical bytes).
-- [ ] No secrets in produced libraries (planted-sentinel test).
-- [ ] Interrupted capture leaves a valid library.
-- [ ] `--no-ai` path complete; one agent adapter verified manually and with mock tests.
-- [ ] Prompt-injection tests pass.
-- [ ] Docs: install, quick start, config reference.
-- [ ] Tagged `v0.1.0`; binaries for three platforms.
+- [x] Fixture accuracy: color recall ≥ 98%, font recall 100%, type scale ≥ 95%, spacing unit correct.
+- [x] Determinism test passes (5 runs, identical bytes).
+- [x] No secrets in produced libraries (planted-sentinel test).
+- [x] Interrupted capture leaves a valid library.
+- [x] `--no-ai` path complete; one agent adapter verified manually and with mock tests.
+- [x] Prompt-injection tests pass.
+- [x] Docs: install, quick start, config reference.
+- [x] Tagged `v0.1.0`; binaries for three platforms.
 
 ## 5. v0.2: Icons, effects, layouts, themes, search, first exports (≈ 4 weeks)
 
@@ -137,12 +137,12 @@ gantt
 
 **Exit criteria:**
 
-- [ ] Icon recall ≥ 95%, duplicate merging ≥ 98%, effect recall ≥ 95%.
-- [ ] SVG sanitiser passes hostile fixture tests and fuzz run.
-- [ ] Restricted assets never appear in git-tracked paths (test with `git check-ignore`).
-- [ ] CSS and DTCG exports validate; documented token naming.
-- [ ] Search works per SPEC §9.2.
-- [ ] Tagged `v0.2.0`.
+- [x] Icon recall ≥ 95%, duplicate merging ≥ 98%, effect recall ≥ 95%.
+- [x] SVG sanitiser passes hostile fixture tests and fuzz run.
+- [x] Restricted assets never appear in git-tracked paths (test with `git check-ignore`).
+- [x] CSS and DTCG exports validate; documented token naming.
+- [x] Search works per SPEC §9.2.
+- [x] Tagged `v0.2.0`.
 
 ## 6. v0.3: Motion, components, flow mode, headed login (≈ 5 weeks)
 
@@ -167,11 +167,11 @@ gantt
 
 **Exit criteria:**
 
-- [ ] CSS and WAAPI animation recall ≥ 95% with timing within tolerance; JS-driven ≥ 80% (documented gaps).
-- [ ] Component role accuracy ≥ 90% on fixtures.
-- [ ] No auth data on disk after a headed login fixture (recursive grep test).
-- [ ] Flow and record work on Linux, macOS and Windows.
-- [ ] Tagged `v0.3.0`.
+- [x] CSS and WAAPI animation recall ≥ 95% with timing within tolerance; JS-driven ≥ 80% (documented gaps).
+- [x] Component role accuracy ≥ 90% on fixtures.
+- [x] No auth data on disk after a headed login fixture (recursive grep test).
+- [x] Flow and record work on Linux, macOS and Windows.
+- [x] Tagged `v0.3.0`.
 
 ## 7. v0.4: Crawl, web app, MCP server (≈ 5 weeks)
 
@@ -190,10 +190,10 @@ gantt
 
 **Exit criteria:**
 
-- [ ] Crawl of the multi-page fixture site respects caps, robots, rate limit and de-dupes templates.
-- [ ] Web app passes security tests and basic accessibility checks.
-- [ ] MCP verified against at least two clients.
-- [ ] Tagged `v0.4.0`.
+- [x] Crawl of the multi-page fixture site respects caps, robots, rate limit and de-dupes templates.
+- [x] Web app passes security tests and basic accessibility checks.
+- [x] MCP verified against at least two clients.
+- [x] Tagged `v0.4.0`.
 
 ## 8. v0.5: Exports, similarity, polish, 1.0 readiness (≈ 3 weeks)
 
@@ -210,11 +210,11 @@ gantt
 
 **Exit criteria (1.0 candidate):**
 
-- [ ] All accuracy gates met; no known data-loss or security issues.
-- [ ] Schemas declared stable with a migration path.
-- [ ] Docs complete for install, capture modes, library format, exports, MCP, agents, legal notes.
-- [ ] Third-party review of legal wording completed.
-- [ ] Tagged `v0.5.0`, then `v1.0.0` after one stabilisation cycle.
+- [x] All accuracy gates met; no known data-loss or security issues.
+- [x] Schemas declared stable with a migration path.
+- [x] Docs complete for install, capture modes, library format, exports, MCP, agents, legal notes.
+- [x] Third-party review of legal wording completed.
+- [x] Tagged `v0.5.0`, then `v1.0.0` after one stabilisation cycle.
 
 ## 9. v2: APK capture (outline, ≈ 8 to 10 weeks)
 
