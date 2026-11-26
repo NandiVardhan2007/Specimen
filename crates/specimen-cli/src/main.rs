@@ -1,8 +1,9 @@
 #![forbid(unsafe_code)]
 
+mod decode;
+
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use url::Url;
 
@@ -12,15 +13,8 @@ use specimen_capture::{
     DriverOptions, EvidenceWriter, FlowDriver, FlowDriverOptions, LaunchOptions, MockSession,
     RateLimiter, SinglePageDriver, Viewport,
 };
-use specimen_core::{Config, FlowAction, FlowScript, FlowStep, ItemType, Provenance};
-use specimen_extract::{
-    ComponentExtractor, MotionExtractor, ObservedColor, PaletteExtractor, ThemeExtractor,
-    TypographyExtractor,
-};
-use specimen_library::{
-    generate_design_md, init_library, migrate_library, normalize_and_save_item, validate_library,
-    DesignDocMeta, NormalizeOptions,
-};
+use specimen_core::{Config, FlowAction, FlowScript, FlowStep};
+use specimen_library::{init_library, migrate_library, validate_library};
 use specimen_mcp::{McpServer, McpServerConfig};
 use specimen_server::run_server;
 
@@ -426,127 +420,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let source_dir = EvidenceWriter::write_atomic(&library, &evidence)?;
             println!("      Source directory: {}", source_dir.display());
 
-            // Run Extractors
-            println!("[5/5] ==> Extracting design tokens and generating DESIGN.md...");
-            let palette_extractor = PaletteExtractor;
-            let (palette, pal_conf, pal_lic) = palette_extractor.extract(
-                "dark",
-                &[
-                    ObservedColor {
-                        hex: "#0b0d12".to_string(),
-                        area_pct: 42.0,
-                        elements: 110,
-                        role_hint: Some("background".to_string()),
-                        css_var: Some("--bg".to_string()),
-                    },
-                    ObservedColor {
-                        hex: "#7c5cff".to_string(),
-                        area_pct: 12.0,
-                        elements: 24,
-                        role_hint: Some("accent".to_string()),
-                        css_var: Some("--accent".to_string()),
-                    },
-                    ObservedColor {
-                        hex: "#f0f2f5".to_string(),
-                        area_pct: 18.0,
-                        elements: 80,
-                        role_hint: Some("text".to_string()),
-                        css_var: Some("--text".to_string()),
-                    },
-                ],
-            );
-
-            let typo_extractor = TypographyExtractor;
-            let (typo, typo_conf, typo_lic) = typo_extractor.extract(Vec::new(), Vec::new());
-
-            let theme_extractor = ThemeExtractor;
-            let (theme, thm_conf, thm_lic) = theme_extractor.extract(
-                "dark",
-                &[8.0, 16.0, 24.0, 32.0],
-                &[4.0, 8.0, 16.0],
-                &[640, 1024],
-                BTreeMap::new(),
-            );
-
-            let _motion_extractor = MotionExtractor;
-            let _comp_extractor = ComponentExtractor;
-
-            // Normalize and save items
-            println!("==> Normalizing items into library collections...");
-            let prov = Provenance {
-                source: format!(
-                    "{}/{}",
-                    parsed_url.host_str().unwrap_or("unknown"),
-                    evidence.captured_at.replace(':', "")
-                ),
-                url: parsed_url.to_string(),
-                selector: None,
-                viewport: "desktop".to_string(),
-                scheme: "dark".to_string(),
-                captured_at: evidence.captured_at.clone(),
-            };
-
-            let pal_res = normalize_and_save_item(
-                &library,
-                NormalizeOptions {
-                    item_type: ItemType::Palette,
-                    slug_hint: "palette",
-                    data: &palette,
-                    provenance: prov.clone(),
-                    license: pal_lic,
-                    confidence: pal_conf,
-                    created_at: &evidence.captured_at,
-                },
-            )?;
-            println!("    Palette item saved: {}", pal_res.item_id);
-
-            let typo_res = normalize_and_save_item(
-                &library,
-                NormalizeOptions {
-                    item_type: ItemType::Typography,
-                    slug_hint: "type-scale",
-                    data: &typo,
-                    provenance: prov.clone(),
-                    license: typo_lic,
-                    confidence: typo_conf,
-                    created_at: &evidence.captured_at,
-                },
-            )?;
-            println!("    Typography item saved: {}", typo_res.item_id);
-
-            let thm_res = normalize_and_save_item(
-                &library,
-                NormalizeOptions {
-                    item_type: ItemType::Theme,
-                    slug_hint: "theme",
-                    data: &theme,
-                    provenance: prov,
-                    license: thm_lic,
-                    confidence: thm_conf,
-                    created_at: &evidence.captured_at,
-                },
-            )?;
-            println!("    Theme item saved: {}", thm_res.item_id);
-
-            // Generate DESIGN.md
-            println!("==> Generating DESIGN.md summary...");
-            let schemes_list = vec!["light".to_string(), "dark".to_string()];
-            let meta = DesignDocMeta {
-                source: parsed_url.host_str().unwrap_or("unknown"),
-                captured_at: &evidence.captured_at,
-                url: parsed_url.as_str(),
-                schemes: &schemes_list,
-            };
-            let design_md_path = generate_design_md(
-                &source_dir,
-                &meta,
-                Some(&palette),
-                Some(&typo),
-                Some(&theme),
-                None,
-                None,
-            )?;
-            println!("    DESIGN.md: {}", design_md_path.display());
+            // Run Live Extractor & Decoder
+            decode::decode_and_save_all(&parsed_url, &library, &evidence, &source_dir)?;
 
             println!("\n🎉 Capture completed successfully!");
             println!(
