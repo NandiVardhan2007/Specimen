@@ -7,3 +7,4 @@ authors.workspace = true
 
 [dependencies]
 specimen-core = { path = "../specimen-core" }
+thiserror.workspace = true

@@ -37,6 +37,19 @@ impl ItemType {
             ItemType::Component => "component",
         }
     }
+
+    pub fn collection_dir_name(&self) -> &'static str {
+        match self {
+            ItemType::Icon => "icons",
+            ItemType::Palette => "palettes",
+            ItemType::Typography => "typography",
+            ItemType::Theme => "themes",
+            ItemType::Layout => "layouts",
+            ItemType::Effect => "effects",
+            ItemType::Animation => "animations",
+            ItemType::Component => "components",
+        }
+    }
 }
 
 impl fmt::Display for ItemType {

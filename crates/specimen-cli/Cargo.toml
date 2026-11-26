@@ -11,4 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 specimen-core = { path = "../specimen-core" }
+specimen-capture = { path = "../specimen-capture" }
+specimen-library = { path = "../specimen-library" }
+specimen-agent = { path = "../specimen-agent" }
 clap = { version = "4.5", features = ["derive"] }
