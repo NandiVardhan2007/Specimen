@@ -161,6 +161,7 @@ pub fn render_base_layout(title: &str, content: &str) -> String {
       <a href="/collections/layouts">Layouts</a>
       <a href="/sources">Sources</a>
       <a href="/search">Search</a>
+      <a href="/compare">Compare</a>
       <a href="/export">Export</a>
     </nav>
   </header>
@@ -282,9 +283,37 @@ pub fn render_collections_view(coll_type: &str, items: &[Value]) -> String {
 pub fn render_item_detail(item: &Value) -> String {
     let id = item["id"].as_str().unwrap_or("unknown");
     let name = item["name"].as_str().unwrap_or(id);
-    let item_type = item["type"].as_str().unwrap_or("unknown");
+    let item_type = item["item_type"]
+        .as_str()
+        .or_else(|| item["type"].as_str())
+        .unwrap_or("unknown");
     let desc = item["description"].as_str().unwrap_or("");
     let json_pretty = serde_json::to_string_pretty(item).unwrap_or_default();
+
+    let mut similar_html = String::new();
+    if let Some(similar_ids) = item.get("similar_to").and_then(|v| v.as_array()) {
+        if !similar_ids.is_empty() {
+            let mut list_items = String::new();
+            for sim_val in similar_ids {
+                if let Some(sim_id) = sim_val.as_str() {
+                    list_items.push_str(&format!(
+                        r#"<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border);">
+  <a href="/items/{sim_id}" style="color:var(--accent); font-family:monospace; text-decoration:none;">{sim_id}</a>
+  <a href="/compare?a={id}&b={sim_id}" class="badge" style="text-decoration:none; background:var(--surface-hover);">Compare side-by-side &rarr;</a>
+</div>"#
+                    ));
+                }
+            }
+            similar_html = format!(
+                r#"<div style="margin-top:24px; padding:16px; background:var(--surface); border:1px solid var(--border); border-radius:8px;">
+  <h3 style="margin-bottom:8px;">Similar Items Detected ({})</h3>
+  <p style="color:var(--text-muted); font-size:13px; margin-bottom:12px;">Items identified with matching color distributions, typography, or roles:</p>
+  {list_items}
+</div>"#,
+                similar_ids.len()
+            );
+        }
+    }
 
     let content = format!(
         r#"<div>
@@ -296,12 +325,106 @@ pub fn render_item_detail(item: &Value) -> String {
     <span class="badge" style="font-size:14px;">Type: {item_type}</span>
   </div>
   <p style="margin-bottom:20px;">{desc}</p>
-  <h3 style="margin-bottom:8px;">Canonical Item Payload</h3>
+  {similar_html}
+  <h3 style="margin-top:24px; margin-bottom:8px;">Canonical Item Payload</h3>
   <pre>{json_pretty}</pre>
 </div>"#
     );
 
     render_base_layout(name, &content)
+}
+
+pub fn render_compare_view(
+    item_a: Option<&Value>,
+    item_b: Option<&Value>,
+    id_a: &str,
+    id_b: &str,
+) -> String {
+    let col_a = match item_a {
+        Some(a) => {
+            let name = a["name"].as_str().unwrap_or(id_a);
+            let itype = a["item_type"]
+                .as_str()
+                .or_else(|| a["type"].as_str())
+                .unwrap_or("unknown");
+            let conf = a["confidence"].as_f64().unwrap_or(1.0);
+            let lic = a["license"]["status"].as_str().unwrap_or("unknown");
+            let pretty = serde_json::to_string_pretty(a).unwrap_or_default();
+            format!(
+                r#"<div style="flex:1; min-width:320px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h3>{name}</h3>
+    <span class="badge">{itype}</span>
+  </div>
+  <p style="font-family:monospace; font-size:12px; color:var(--text-muted); margin-bottom:12px;">{id_a}</p>
+  <div style="display:flex; gap:8px; margin-bottom:16px;">
+    <span class="badge" style="background:#064e3b; color:#34d399;">{lic}</span>
+    <span class="badge">{:.0}% conf</span>
+  </div>
+  <pre>{pretty}</pre>
+</div>"#,
+                conf * 100.0
+            )
+        }
+        None => format!(
+            r#"<div style="flex:1; min-width:320px; background:var(--surface); border:1px dashed var(--border); border-radius:8px; padding:20px; text-align:center;">
+  <p style="color:var(--text-muted);">Item A ({id_a}) not found or not specified.</p>
+</div>"#
+        ),
+    };
+
+    let col_b = match item_b {
+        Some(b) => {
+            let name = b["name"].as_str().unwrap_or(id_b);
+            let itype = b["item_type"]
+                .as_str()
+                .or_else(|| b["type"].as_str())
+                .unwrap_or("unknown");
+            let conf = b["confidence"].as_f64().unwrap_or(1.0);
+            let lic = b["license"]["status"].as_str().unwrap_or("unknown");
+            let pretty = serde_json::to_string_pretty(b).unwrap_or_default();
+            format!(
+                r#"<div style="flex:1; min-width:320px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h3>{name}</h3>
+    <span class="badge">{itype}</span>
+  </div>
+  <p style="font-family:monospace; font-size:12px; color:var(--text-muted); margin-bottom:12px;">{id_b}</p>
+  <div style="display:flex; gap:8px; margin-bottom:16px;">
+    <span class="badge" style="background:#064e3b; color:#34d399;">{lic}</span>
+    <span class="badge">{:.0}% conf</span>
+  </div>
+  <pre>{pretty}</pre>
+</div>"#,
+                conf * 100.0
+            )
+        }
+        None => format!(
+            r#"<div style="flex:1; min-width:320px; background:var(--surface); border:1px dashed var(--border); border-radius:8px; padding:20px; text-align:center;">
+  <p style="color:var(--text-muted);">Item B ({id_b}) not found or not specified.</p>
+</div>"#
+        ),
+    };
+
+    let content = format!(
+        r#"<div>
+  <h2>Item Comparison & Merge Review</h2>
+  <p style="color:var(--text-muted); margin-top:4px; margin-bottom:20px;">
+    Compare two design system items side-by-side to review differences or verify deduplication candidates.
+  </p>
+  <form action="/compare" method="GET" class="search-bar" style="margin-bottom:24px;">
+    <input type="text" name="a" class="input-text" placeholder="Item A ID..." value="{id_a}" style="flex:1;" />
+    <input type="text" name="b" class="input-text" placeholder="Item B ID..." value="{id_b}" style="flex:1;" />
+    <button type="submit" class="btn">Compare</button>
+  </form>
+  <div style="display:flex; gap:20px; flex-wrap:wrap;">
+    {col_a}
+    {col_b}
+  </div>
+</div>"#
+    );
+
+    render_base_layout("Compare", &content)
 }
 
 pub fn render_sources_list(sources: &[String]) -> String {
@@ -335,12 +458,15 @@ pub fn render_export_view(tokens_css: &str, format: &str) -> String {
         r#"<div>
   <h2>Export Design Tokens</h2>
   <p style="color:var(--text-muted); margin-top:4px; margin-bottom:16px;">
-    Export your extracted design system tokens. Supported formats: CSS Variables, Tailwind v4, Tailwind v3, DTCG.
+    Export your extracted design system tokens. Supported formats: CSS Variables, Tailwind v4, Tailwind v3, DTCG, SCSS, Tokens Studio.
   </p>
-  <div style="display:flex; gap:12px; margin-bottom:20px;">
+  <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
     <a href="/export?format=css" class="btn" style="text-decoration:none;">CSS Custom Properties</a>
     <a href="/export?format=tailwind" class="btn" style="text-decoration:none; background:#0284c7;">Tailwind v4 (@theme)</a>
+    <a href="/export?format=tailwind-v3" class="btn" style="text-decoration:none; background:#0369a1;">Tailwind v3 Config</a>
     <a href="/export?format=dtcg" class="btn" style="text-decoration:none; background:#059669;">W3C DTCG Tokens</a>
+    <a href="/export?format=scss" class="btn" style="text-decoration:none; background:#d97706;">SCSS Variables</a>
+    <a href="/export?format=tokens-studio" class="btn" style="text-decoration:none; background:#7c3aed;">Tokens Studio</a>
   </div>
   <h3>Generated {format}</h3>
   <pre style="margin-top:12px;">{tokens_css}</pre>

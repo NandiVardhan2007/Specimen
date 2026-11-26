@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: specimen
+            archive: tar.gz
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary: specimen
+            archive: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary: specimen
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: specimen.exe
+            archive: zip
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build Release Binary
+        run: cargo build --release --target ${{ matrix.target }} -p specimen-cli
+
+      - name: Package Artifacts
+        shell: bash
+        run: |
+          mkdir dist
+          cp target/${{ matrix.target }}/release/${{ matrix.binary }} dist/
+          cd dist
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            7z a specimen-${{ matrix.target }}.zip ${{ matrix.binary }}
+            sha256sum specimen-${{ matrix.target }}.zip > specimen-${{ matrix.target }}.zip.sha256
+          else
+            tar -czvf specimen-${{ matrix.target }}.tar.gz ${{ matrix.binary }}
+            sha256sum specimen-${{ matrix.target }}.tar.gz > specimen-${{ matrix.target }}.tar.gz.sha256
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*.*

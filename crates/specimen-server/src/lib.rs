@@ -23,6 +23,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/items/{item_id}", get(handlers::handle_item_detail))
         .route("/sources", get(handlers::handle_sources))
         .route("/search", get(handlers::handle_search))
+        .route("/compare", get(handlers::handle_compare))
         .route("/export", get(handlers::handle_export))
         .route("/api/status", get(handlers::handle_api_status))
         .layer(axum_mw::from_fn(loopback_security_middleware))
@@ -85,5 +86,21 @@ mod tests {
 
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn test_compare_endpoint() {
+        let temp = tempfile::tempdir().unwrap();
+        let state = AppState::new(temp.path().to_path_buf());
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/compare?a=specimen.palette/item-1&b=specimen.palette/item-2")
+            .header(header::HOST, "127.0.0.1:4000")
+            .body(Body::empty())
+            .unwrap();
+
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 }

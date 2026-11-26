@@ -2,10 +2,13 @@
 
 use clap::{Parser, Subcommand};
 use schemars::schema_for;
-use specimen_core::Config;
+use specimen_core::{Config, Item, ItemId, ItemType, License, LicenseStatus, UserMeta};
+use specimen_extract::{ObservedColor, PaletteExtractor, SvgSanitizer};
+use specimen_library::{init_library, SearchIndex};
 use std::fs;
 use std::path::Path;
 use std::process::{Command, ExitStatus};
+use std::time::Instant;
 
 #[derive(Parser, Debug)]
 #[command(name = "xtask", about = "Development automation for Specimen")]
@@ -26,6 +29,8 @@ enum Commands {
     Browser,
     /// Run extraction accuracy benchmark against fixture ground truths
     Accuracy,
+    /// Run performance benchmarks (extraction throughput, canonical JSON, search latency)
+    Bench,
 }
 
 fn run_step(desc: &str, mut cmd: Command) -> Result<(), String> {
@@ -139,6 +144,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::Accuracy => {
             run_accuracy_benchmark()?;
+        }
+        Commands::Bench => {
+            run_performance_benchmark()?;
         }
         Commands::Fixtures => {
             println!("==> Fixture ground truths are verified in fixtures/ directory");
@@ -625,4 +633,168 @@ fn run_accuracy_benchmark() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn run_performance_benchmark() -> Result<(), Box<dyn std::error::Error>> {
+    println!("\n==> Running Specimen Performance Benchmark Suite...");
+    println!("=======================================================");
+
+    // 1. Extractor Throughput Benchmark
+    print!("Benchmarking Palette Extractor (500 observed colors)... ");
+    let colors: Vec<ObservedColor> = (0..500)
+        .map(|i| ObservedColor {
+            hex: format!(
+                "#{:02x}{:02x}{:02x}",
+                (i * 17) % 256,
+                (i * 31) % 256,
+                (i * 53) % 256
+            ),
+            area_pct: (500 - i) as f64 / 500.0 * 10.0,
+            elements: (500 - i),
+            role_hint: if i == 0 {
+                Some("background".to_string())
+            } else {
+                None
+            },
+            css_var: None,
+        })
+        .collect();
+    let pal_start = Instant::now();
+    let palette_extractor = PaletteExtractor;
+    let (pal, _, _) = palette_extractor.extract("dark", &colors);
+    let pal_elapsed = pal_start.elapsed();
+    println!(
+        "DONE in {:.2?} ({} colors mapped)",
+        pal_elapsed,
+        pal.colors.len()
+    );
+
+    // 2. SVG Sanitization & Fingerprint Benchmark
+    print!("Benchmarking SVG Sanitization & Hashing (200 icons)... ");
+    let svg_sample = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/><script>alert(1)</script></svg>"#;
+    let svg_start = Instant::now();
+    for _ in 0..200 {
+        let clean = SvgSanitizer::sanitize(svg_sample).ok_or("Failed to sanitize svg")?;
+        let _ = ItemId::generate(ItemType::Icon, "test-icon", &clean.clean_svg);
+    }
+    let svg_elapsed = svg_start.elapsed();
+    println!(
+        "DONE in {:.2?} ({:.0} icons/sec)",
+        svg_elapsed,
+        200.0 / svg_elapsed.as_secs_f64()
+    );
+
+    // 3. Canonical JSON Serialization Benchmark
+    print!("Benchmarking Canonical JSON Serialization (100 runs)... ");
+    let json_start = Instant::now();
+    for _ in 0..100 {
+        let _ = specimen_core::to_canonical_json(&pal)?;
+    }
+    let json_elapsed = json_start.elapsed();
+    println!(
+        "DONE in {:.2?} ({:.0} ops/sec)",
+        json_elapsed,
+        100.0 / json_elapsed.as_secs_f64()
+    );
+
+    // 4. In-Memory Search Latency Benchmark (1,000 item library)
+    print!("Setting up synthetic 1,000 item library... ");
+    let temp = tempfile::tempdir()?;
+    let lib_root = temp.path().join("lib");
+    init_library(&lib_root, None)?;
+
+    let col_dir = lib_root.join("collections").join("palettes");
+    fs::create_dir_all(&col_dir)?;
+
+    for i in 0..1000 {
+        let item_id = ItemId::generate(
+            ItemType::Palette,
+            &format!("palette-{}", i),
+            &format!(r#"{{"index":{}}}"#, i),
+        );
+        let item = Item {
+            schema: "specimen.item/1".to_string(),
+            id: item_id.clone(),
+            item_type: ItemType::Palette,
+            name: Some(format!("Theme Palette {}", i)),
+            slug: format!("palette-{}", i),
+            description: Some("Automated test design palette".to_string()),
+            tags: std::collections::BTreeSet::from([
+                "theme".to_string(),
+                if i % 2 == 0 {
+                    "dark".to_string()
+                } else {
+                    "light".to_string()
+                },
+            ]),
+            data: serde_json::json!({"scheme": if i % 2 == 0 { "dark" } else { "light" }}),
+            provenance: vec![],
+            license: License {
+                status: LicenseStatus::Reusable,
+                basis: "public tokens".to_string(),
+                spdx: None,
+            },
+            confidence: 0.95,
+            similar_to: vec![],
+            annotations: None,
+            user: UserMeta::default(),
+            previews: vec![],
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            updated_at: "2026-01-01T00:00:00Z".to_string(),
+        };
+        let item_dir = col_dir.join(item_id.as_str());
+        fs::create_dir_all(&item_dir)?;
+        fs::write(item_dir.join("item.json"), serde_json::to_string(&item)?)?;
+    }
+    println!("DONE");
+
+    // Cold index build
+    let cold_start = Instant::now();
+    let filter = SearchIndex::parse_query("type:palette dark");
+    let cold_hits = SearchIndex::search(&lib_root, &filter)?;
+    let cold_elapsed = cold_start.elapsed();
+    println!(
+        "  Cold Search (index build + scan 1,000 files): {:.2?} ({} hits)",
+        cold_elapsed,
+        cold_hits.len()
+    );
+
+    // Warm in-memory cached search
+    let warm_queries = [
+        "type:palette dark",
+        "type:palette light",
+        "theme palette 42",
+        "palette-99",
+        "license:reusable theme",
+    ];
+    let in_memory_entries = SearchIndex::load_or_build(&lib_root)?;
+    let warm_start = Instant::now();
+    let num_iterations = 200;
+    for i in 0..num_iterations {
+        let q = warm_queries[i % warm_queries.len()];
+        let f = SearchIndex::parse_query(q);
+        let _ = SearchIndex::query_entries(&in_memory_entries, &f);
+    }
+    let warm_elapsed = warm_start.elapsed();
+    let avg_latency_us = warm_elapsed.as_micros() as f64 / num_iterations as f64;
+    let qps = num_iterations as f64 / warm_elapsed.as_secs_f64();
+    println!(
+        "  Warm In-Memory Search (200 query runs): {:.2?} total",
+        warm_elapsed
+    );
+    println!(
+        "  Average In-Memory Search Latency: {:.1} µs ({:.3} ms) - SPEC Target: < 100 ms",
+        avg_latency_us,
+        avg_latency_us / 1000.0
+    );
+    println!("  Search Throughput: {:.0} QPS", qps);
+
+    println!("-------------------------------------------------------");
+    let search_target_met = (avg_latency_us / 1000.0) < 100.0;
+    if search_target_met {
+        println!("Benchmark Result: PASS ✅ (All latency and throughput targets met)\n");
+        Ok(())
+    } else {
+        Err("Search latency target exceeded 100 ms".into())
+    }
 }

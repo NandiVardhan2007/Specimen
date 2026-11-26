@@ -79,6 +79,10 @@ enum Commands {
         /// Disable AI interpretation and use deterministic heuristics only
         #[arg(long, default_value_t = true)]
         no_ai: bool,
+
+        /// Simulate execution without launching browser or writing evidence to disk
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
     },
     /// Record an interactive browser flow script
     Record {
@@ -171,6 +175,10 @@ enum Commands {
         /// Run browser in visible headed mode
         #[arg(long, default_value_t = false)]
         headed: bool,
+
+        /// Simulate crawl execution without launching browser or writing evidence to disk
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
     },
     /// Start the local web UI on 127.0.0.1 (Invariant 8)
     Serve {
@@ -273,7 +281,53 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             headed,
             allow_eval,
             no_ai: _,
+            dry_run,
         }) => {
+            if dry_run {
+                println!("🔍 Specimen Capture [DRY RUN]");
+                println!("============================\n");
+                if mode == "flow" || url.ends_with(".yaml") || url.ends_with(".yml") {
+                    let flow_yaml = std::fs::read_to_string(&url)
+                        .map_err(|e| format!("Failed to read flow script '{}': {}", url, e))?;
+                    let script: FlowScript = serde_yaml::from_str(&flow_yaml)
+                        .map_err(|e| format!("Flow YAML parse error in '{}': {}", url, e))?;
+                    let start_url = Url::parse(&script.start)?;
+                    let ips = resolve_and_validate_host(&start_url, allow_private)?;
+                    println!("Plan: Flow Capture");
+                    println!("  Script Path:     {}", url);
+                    println!("  Start URL:       {}", start_url);
+                    println!(
+                        "  Host Security:   ✅ Passed ({} IP(s) verified)",
+                        ips.len()
+                    );
+                    println!("  Flow Steps:      {} step(s)", script.steps.len());
+                    println!("  Destination:     {}", library.display());
+                } else {
+                    let parsed_url = Url::parse(&url)?;
+                    let ips = resolve_and_validate_host(&parsed_url, allow_private)?;
+                    println!("Plan: Single-Page Capture");
+                    println!("  Target URL:      {}", parsed_url);
+                    println!(
+                        "  Host Security:   ✅ Passed ({} IP(s) verified)",
+                        ips.len()
+                    );
+                    println!("  Viewports:       mobile (390x844 @2x), desktop (1920x1080 @1x)");
+                    println!("  Color Schemes:   light, dark");
+                    println!("  Extractors:      palette, typography, icon, effect, layout, motion, component");
+                    println!("  Destination:     {}", library.display());
+                }
+                match find_browser() {
+                    Some(b) => println!("  Browser Binary:  ✅ {} ({})", b.name, b.path.display()),
+                    None => println!(
+                        "  Browser Binary:  ⚠️ No system browser found ($CHROME_BIN unset)"
+                    ),
+                }
+                println!(
+                    "\nDry run completed successfully. 0 requests issued, 0 bytes written to disk."
+                );
+                return Ok(());
+            }
+
             // Load library config if present
             let config_path = library.join("specimen.toml");
             let config = Config::load_or_default(&config_path)?;
@@ -286,20 +340,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .map_err(|e| format!("Flow YAML parse error in '{}': {}", url, e))?;
 
                 let start_url = Url::parse(&script.start)?;
-                println!("==> Validating URL policy for: {}", start_url);
+                println!("[1/4] ==> Validating URL policy for: {}", start_url);
                 let resolved_ips = resolve_and_validate_host(&start_url, allow_private)?;
                 println!(
-                    "    Resolved host ({} IP(s) verified safe)",
+                    "      Resolved host ({} IP(s) verified safe)",
                     resolved_ips.len()
                 );
 
-                println!("==> Spawning browser with isolated temporary profile...");
+                println!("[2/4] ==> Spawning browser with isolated temporary profile...");
                 let launch_opts = LaunchOptions {
                     headed,
                     ..Default::default()
                 };
                 let _browser = BrowserGuard::launch(&launch_opts)?;
-                println!("    Browser listening on CDP port {}", _browser.port());
+                println!("      Browser listening on CDP port {}", _browser.port());
 
                 let flow_opts = FlowDriverOptions {
                     allow_eval,
@@ -308,15 +362,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let mut session = MockSession::default();
                 println!(
-                    "==> Running scripted flow ({} steps)...",
+                    "[3/4] ==> Running scripted flow ({} steps)...",
                     script.steps.len()
                 );
                 let flow_evidence =
                     FlowDriver::run(&mut session, &script, &flow_opts, Some(&rate_limiter)).await?;
 
-                println!("==> Writing flow evidence atomically to library...");
+                println!("[4/4] ==> Writing flow evidence atomically to library...");
                 let source_dir = EvidenceWriter::write_flow_atomic(&library, &flow_evidence)?;
-                println!("    Source directory: {}", source_dir.display());
+                println!("      Source directory: {}", source_dir.display());
 
                 println!(
                     "\n🎉 Flow capture completed successfully! ({} steps executed)",
@@ -326,21 +380,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             let parsed_url = Url::parse(&url)?;
-            println!("==> Validating URL policy for: {}", parsed_url);
+            println!("[1/5] ==> Validating URL policy for: {}", parsed_url);
             let resolved_ips = resolve_and_validate_host(&parsed_url, allow_private)?;
             println!(
-                "    Resolved host ({} IP(s) verified safe)",
+                "      Resolved host ({} IP(s) verified safe)",
                 resolved_ips.len()
             );
 
             // Launch browser guard with temporary profile
-            println!("==> Spawning browser with isolated temporary profile...");
+            println!("[2/5] ==> Spawning browser with isolated temporary profile...");
             let launch_opts = LaunchOptions {
                 headed,
                 ..Default::default()
             };
             let _browser = BrowserGuard::launch(&launch_opts)?;
-            println!("    Browser listening on CDP port {}", _browser.port());
+            println!("      Browser listening on CDP port {}", _browser.port());
 
             let driver_opts = DriverOptions {
                 viewports: vec![
@@ -363,17 +417,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Use driver with mock session fallback for capture execution
             let mut session = MockSession::default();
-            println!("==> Capturing viewports and color schemes...");
+            println!("[3/5] ==> Capturing viewports and color schemes...");
             let evidence =
                 SinglePageDriver::run(&mut session, &parsed_url, &driver_opts, Some(&rate_limiter))
                     .await?;
 
-            println!("==> Writing evidence atomically to library...");
+            println!("[4/5] ==> Writing evidence atomically to library...");
             let source_dir = EvidenceWriter::write_atomic(&library, &evidence)?;
-            println!("    Source directory: {}", source_dir.display());
+            println!("      Source directory: {}", source_dir.display());
 
             // Run Extractors
-            println!("==> Extracting design tokens...");
+            println!("[5/5] ==> Extracting design tokens and generating DESIGN.md...");
             let palette_extractor = PaletteExtractor;
             let (palette, pal_conf, pal_lic) = palette_extractor.extract(
                 "dark",
@@ -699,17 +753,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             max_pages,
             allow_private,
             headed,
+            dry_run,
         }) => {
             let start_url = Url::parse(&url)?;
-            println!("==> Validating URL policy for crawl start: {}", start_url);
             let resolved_ips = resolve_and_validate_host(&start_url, allow_private)?;
-            println!("    Host verified safe ({} IP(s))", resolved_ips.len());
+            let host = start_url.host_str().unwrap_or("unknown");
+
+            if dry_run {
+                println!("🔍 Specimen Crawl [DRY RUN]");
+                println!("==========================\n");
+                println!("Plan: Multi-Page Site Crawl");
+                println!("  Start URL:       {}", start_url);
+                println!("  Host Scope:      Same-origin strictly ({})", host);
+                println!(
+                    "  Host Security:   ✅ Passed ({} IP(s) verified safe)",
+                    resolved_ips.len()
+                );
+                println!("  Max Depth:       {} link level(s)", depth);
+                println!("  Max Pages:       Up to {} pages", max_pages);
+                println!("  Template Dedupe: Enabled");
+                println!("  Destination:     {}", library.display());
+                match find_browser() {
+                    Some(b) => println!("  Browser Binary:  ✅ {} ({})", b.name, b.path.display()),
+                    None => println!(
+                        "  Browser Binary:  ⚠️ No system browser found ($CHROME_BIN unset)"
+                    ),
+                }
+                println!(
+                    "\nDry run completed successfully. 0 requests issued, 0 bytes written to disk."
+                );
+                return Ok(());
+            }
+
+            println!(
+                "[1/4] ==> Validating URL policy for crawl start: {}",
+                start_url
+            );
+            println!("      Host verified safe ({} IP(s))", resolved_ips.len());
 
             let config_path = library.join("specimen.toml");
             let config = Config::load_or_default(&config_path)?;
             let rate_limiter = RateLimiter::new(config.capture.rate_limit_rps);
 
-            println!("==> Spawning browser with isolated temporary profile...");
+            println!("[2/4] ==> Spawning browser with isolated temporary profile...");
             let launch_opts = LaunchOptions {
                 headed,
                 ..Default::default()
@@ -726,14 +812,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut session = MockSession::default();
             println!(
-                "==> Starting BFS crawl (max_depth={}, max_pages={})...",
+                "[3/4] ==> Starting BFS crawl (max_depth={}, max_pages={})...",
                 depth, max_pages
             );
             let crawl_evidence =
                 CrawlDriver::run(&mut session, &start_url, &crawl_opts, Some(&rate_limiter))
                     .await?;
 
-            println!("==> Writing crawl evidence to library...");
+            println!("[4/4] ==> Writing crawl evidence and group index to library...");
             for page in &crawl_evidence.pages {
                 EvidenceWriter::write_atomic(&library, page)?;
             }

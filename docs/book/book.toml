@@ -1,0 +1,13 @@
+[book]
+authors = ["Specimen Contributors"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Specimen Documentation"
+
+[output.html]
+git-repository-url = "https://github.com/specimen-cli/specimen"
+edit-url-template = "https://github.com/specimen-cli/specimen/edit/main/docs/book/{path}"
+default-theme = "navy"
+preferred-dark-theme = "navy"
+mathjax-support = false

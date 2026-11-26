@@ -9,8 +9,8 @@ use std::fs;
 
 use crate::state::AppState;
 use crate::views::{
-    render_collections_view, render_export_view, render_home, render_item_detail,
-    render_search_view, render_sources_list,
+    render_collections_view, render_compare_view, render_export_view, render_home,
+    render_item_detail, render_search_view, render_sources_list,
 };
 
 pub async fn handle_home(State(state): State<AppState>) -> impl IntoResponse {
@@ -73,27 +73,61 @@ pub async fn handle_collection(
     Html(render_collections_view(&coll_type, &items))
 }
 
-pub async fn handle_item_detail(
-    State(state): State<AppState>,
-    Path(item_id): Path<String>,
-) -> Result<Html<String>, StatusCode> {
-    let collections_dir = state.library_root.join("collections");
+pub fn find_item_by_id(library_root: &std::path::Path, item_id: &str) -> Option<Value> {
+    let collections_dir = library_root.join("collections");
     if collections_dir.exists() {
         if let Ok(coll_entries) = fs::read_dir(&collections_dir) {
             for coll_entry in coll_entries.flatten() {
-                let candidate_file = coll_entry.path().join(&item_id).join("item.json");
+                let candidate_file = coll_entry.path().join(item_id).join("item.json");
                 if candidate_file.exists() {
                     if let Ok(content) = fs::read_to_string(&candidate_file) {
                         if let Ok(val) = serde_json::from_str::<Value>(&content) {
-                            return Ok(Html(render_item_detail(&val)));
+                            return Some(val);
                         }
                     }
                 }
             }
         }
     }
+    None
+}
 
-    Err(StatusCode::NOT_FOUND)
+pub async fn handle_item_detail(
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
+) -> Result<Html<String>, StatusCode> {
+    if let Some(val) = find_item_by_id(&state.library_root, &item_id) {
+        Ok(Html(render_item_detail(&val)))
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
+}
+
+pub async fn handle_compare(
+    State(state): State<AppState>,
+    Query(params): Query<BTreeMap<String, String>>,
+) -> impl IntoResponse {
+    let id_a = params.get("a").map(|s| s.as_str()).unwrap_or_default();
+    let id_b = params.get("b").map(|s| s.as_str()).unwrap_or_default();
+
+    let item_a = if !id_a.is_empty() {
+        find_item_by_id(&state.library_root, id_a)
+    } else {
+        None
+    };
+
+    let item_b = if !id_b.is_empty() {
+        find_item_by_id(&state.library_root, id_b)
+    } else {
+        None
+    };
+
+    Html(render_compare_view(
+        item_a.as_ref(),
+        item_b.as_ref(),
+        id_a,
+        id_b,
+    ))
 }
 
 pub async fn handle_sources(State(state): State<AppState>) -> impl IntoResponse {
