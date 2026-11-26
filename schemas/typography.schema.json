@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TypographyData",
+  "type": "object",
+  "required": [
+    "families",
+    "scale"
+  ],
+  "properties": {
+    "families": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/FontFamily"
+      }
+    },
+    "scale": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TypeScaleEntry"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "FontFamily": {
+      "type": "object",
+      "required": [
+        "delivery",
+        "name",
+        "stack"
+      ],
+      "properties": {
+        "delivery": {
+          "type": "string"
+        },
+        "files": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FontFileMeta"
+          }
+        },
+        "license_hints": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FontLicenseHints"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "stack": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "FontFileMeta": {
+      "type": "object",
+      "required": [
+        "file",
+        "format",
+        "sha256",
+        "style",
+        "weight"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "style": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "FontLicenseHints": {
+      "type": "object",
+      "properties": {
+        "fs_type": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "license_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name_table_license": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TypeScaleEntry": {
+      "type": "object",
+      "required": [
+        "family",
+        "letter_spacing_em",
+        "line_height",
+        "role",
+        "size_px",
+        "weight"
+      ],
+      "properties": {
+        "family": {
+          "type": "string"
+        },
+        "letter_spacing_em": {
+          "type": "number",
+          "format": "double"
+        },
+        "line_height": {
+          "type": "number",
+          "format": "double"
+        },
+        "role": {
+          "type": "string"
+        },
+        "size_px": {
+          "type": "number",
+          "format": "double"
+        },
+        "weight": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

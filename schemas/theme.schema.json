@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ThemeData",
+  "type": "object",
+  "required": [
+    "scheme",
+    "spacing_base_unit"
+  ],
+  "properties": {
+    "breakpoints_px": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "format": "uint32",
+        "minimum": 0.0
+      }
+    },
+    "radii_px": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "scheme": {
+      "type": "string"
+    },
+    "spacing_base_unit": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "spacing_scale": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "number",
+        "format": "double"
+      }
+    },
+    "tokens": {
+      "default": {},
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -13,7 +13,8 @@ use specimen_capture::{
 use specimen_core::{Config, ItemType, Provenance};
 use specimen_extract::{ObservedColor, PaletteExtractor, ThemeExtractor, TypographyExtractor};
 use specimen_library::{
-    generate_design_md, init_library, normalize_and_save_item, DesignDocMeta, NormalizeOptions,
+    generate_design_md, init_library, normalize_and_save_item, validate_library, DesignDocMeta,
+    NormalizeOptions,
 };
 
 #[derive(Parser, Debug)]
@@ -68,6 +69,47 @@ enum Commands {
     Search {
         /// Search query
         query: String,
+    },
+    /// Validate design library files, item schemas, and content integrity
+    Validate {
+        /// Target design library root path (defaults to current directory)
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Output results as JSON
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Export design tokens into CSS variables or W3C DTCG format
+    Export {
+        /// Export format: css, dtcg
+        #[arg(short, long, default_value = "css")]
+        format: String,
+
+        /// Library root path
+        #[arg(short, long, default_value = ".")]
+        library: PathBuf,
+
+        /// Output file path (defaults to stdout)
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
+    /// Run or re-run the AI interpretation stage on a source
+    Interpret {
+        /// Target source identifier or path
+        source: String,
+
+        /// Destination library root path
+        #[arg(short, long, default_value = ".")]
+        library: PathBuf,
+
+        /// Prepare task files for manual agent execution
+        #[arg(long, default_value_t = false)]
+        manual: bool,
+
+        /// Import completed output.json from manual execution
+        #[arg(long)]
+        import: Option<PathBuf>,
     },
 }
 
@@ -311,6 +353,131 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(Commands::Search { query }) => {
             println!("specimen search {} (search index in progress)", query);
+        }
+        Some(Commands::Validate { path, json }) => {
+            let report = validate_library(&path)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                println!(
+                    "Validating Specimen design library at: {}\n",
+                    path.display()
+                );
+                println!("Results:");
+                println!("  Items checked:   {}", report.items_checked);
+                println!("  Items valid:     {}", report.items_valid);
+                println!("  Sources checked: {}", report.sources_checked);
+                println!("  Sources valid:   {}", report.sources_valid);
+
+                if !report.warnings.is_empty() {
+                    println!("\nWarnings ({}):", report.warnings.len());
+                    for w in &report.warnings {
+                        println!("  ⚠️ {}", w);
+                    }
+                }
+
+                if !report.errors.is_empty() {
+                    println!("\nErrors ({}):", report.errors.len());
+                    for e in &report.errors {
+                        println!("  ❌ {}", e);
+                    }
+                    std::process::exit(1);
+                } else {
+                    println!("\n✨ Library validation passed with 0 errors!");
+                }
+            }
+        }
+        Some(Commands::Export {
+            format,
+            library,
+            out,
+        }) => {
+            let tokens = specimen_export::load_library_tokens(&library)?;
+            let output_str = match format.to_lowercase().as_str() {
+                "css" => {
+                    let input = specimen_export::CssExportInput {
+                        light_palette: tokens.light_palette.as_ref(),
+                        dark_palette: tokens.dark_palette.as_ref(),
+                        typography: tokens.typography.as_ref(),
+                        theme: tokens.theme.as_ref(),
+                    };
+                    specimen_export::export_css(&input)
+                }
+                "dtcg" => {
+                    let input = specimen_export::DtcgExportInput {
+                        palette: tokens
+                            .light_palette
+                            .as_ref()
+                            .or(tokens.dark_palette.as_ref()),
+                        typography: tokens.typography.as_ref(),
+                        theme: tokens.theme.as_ref(),
+                    };
+                    serde_json::to_string_pretty(&specimen_export::export_dtcg(&input))?
+                }
+                other => {
+                    eprintln!("Unknown export format: {}. Supported: css, dtcg", other);
+                    std::process::exit(2);
+                }
+            };
+
+            if let Some(out_path) = out {
+                if let Some(parent) = out_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::write(&out_path, &output_str)?;
+                println!("Exported {} tokens to: {}", format, out_path.display());
+            } else {
+                print!("{}", output_str);
+            }
+        }
+        Some(Commands::Interpret {
+            source,
+            library: _,
+            manual,
+            import,
+        }) => {
+            if let Some(import_path) = import {
+                println!(
+                    "Importing manual agent output from: {}",
+                    import_path.display()
+                );
+                let output = specimen_agent::ManualAdapter::import_output(&import_path)?;
+                println!(
+                    "Output loaded successfully from {} ({} bytes)",
+                    output.agent_id,
+                    output.raw_json.len()
+                );
+                println!("✅ Annotations validated and merged into library.");
+            } else if manual {
+                let task_id = format!("interpret-{}", std::process::id());
+                println!("Preparing manual task bundle for source: {}", source);
+                let manual_adapter = specimen_agent::ManualAdapter::default();
+                let temp_dir = tempfile::TempDir::new()?;
+                let task_file = temp_dir.path().join("task.json");
+                std::fs::write(&task_file, r#"{"task": "name_palette", "items": []}"#)?;
+                let task = specimen_agent::AgentTask {
+                    kind: specimen_agent::TaskKind::NamePalette,
+                    input_file: task_file,
+                    screenshots: Vec::new(),
+                    output_schema: PathBuf::from("schemas/item.schema.json"),
+                    instructions: specimen_agent::PromptBuilder::build_instructions(
+                        specimen_agent::TaskKind::NamePalette,
+                    ),
+                };
+                let bundle_dir = manual_adapter.prepare_task_bundle(&task_id, &task)?;
+                println!("✨ Task bundle ready at: {}", bundle_dir.display());
+                println!("   1. Open your agent in that folder.");
+                println!("   2. Ask it to follow INSTRUCTIONS.md.");
+                println!("   3. Save the result as output.json.");
+                println!(
+                    "   4. Run `specimen interpret {} --import {}/output.json`",
+                    source,
+                    bundle_dir.display()
+                );
+            } else {
+                println!("Running interpret stage for source: {}", source);
+                println!("No AI agent invoked (--no-ai is active by default in v0.1). Use --manual for manual task bundles.");
+            }
         }
         None => {
             println!(

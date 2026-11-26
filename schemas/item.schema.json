@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Item_for_AnyValue",
+  "description": "Primary generic Item representation matching SPEC §7.",
+  "type": "object",
+  "required": [
+    "confidence",
+    "created_at",
+    "data",
+    "id",
+    "license",
+    "schema",
+    "slug",
+    "type",
+    "updated_at"
+  ],
+  "properties": {
+    "annotations": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Annotations"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "format": "double"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "data": true,
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "id": {
+      "$ref": "#/definitions/ItemId"
+    },
+    "license": {
+      "$ref": "#/definitions/License"
+    },
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "previews": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/RelPath"
+      }
+    },
+    "provenance": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Provenance"
+      }
+    },
+    "schema": {
+      "type": "string"
+    },
+    "similar_to": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ItemId"
+      }
+    },
+    "slug": {
+      "type": "string"
+    },
+    "tags": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "type": {
+      "$ref": "#/definitions/ItemType"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "user": {
+      "default": {
+        "favorite": false,
+        "notes": ""
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/UserMeta"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Annotations": {
+      "description": "Annotation metadata attached by AI agents or manual review.",
+      "type": "object",
+      "required": [
+        "at",
+        "by",
+        "prompt_hash"
+      ],
+      "properties": {
+        "at": {
+          "type": "string"
+        },
+        "by": {
+          "type": "string"
+        },
+        "prompt_hash": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ItemId": {
+      "description": "A canonical Item ID adhering to `<type>-<slug>-<hash8>`.",
+      "type": "string"
+    },
+    "ItemType": {
+      "description": "High-level item types supported by Specimen.",
+      "type": "string",
+      "enum": [
+        "icon",
+        "palette",
+        "typography",
+        "theme",
+        "layout",
+        "effect",
+        "animation",
+        "component"
+      ]
+    },
+    "License": {
+      "description": "License declaration with legal basis and optional SPDX identifier.",
+      "type": "object",
+      "required": [
+        "basis",
+        "status"
+      ],
+      "properties": {
+        "basis": {
+          "type": "string"
+        },
+        "spdx": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "$ref": "#/definitions/LicenseStatus"
+        }
+      },
+      "additionalProperties": false
+    },
+    "LicenseStatus": {
+      "description": "License categorization status.",
+      "type": "string",
+      "enum": [
+        "reusable",
+        "reference-only",
+        "unknown"
+      ]
+    },
+    "Provenance": {
+      "description": "Provenance metadata tracking the origin of captured elements.",
+      "type": "object",
+      "required": [
+        "captured_at",
+        "scheme",
+        "source",
+        "url",
+        "viewport"
+      ],
+      "properties": {
+        "captured_at": {
+          "type": "string"
+        },
+        "scheme": {
+          "type": "string"
+        },
+        "selector": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "viewport": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RelPath": {
+      "description": "A normalized, safe relative path within the library.\n\nDisallows absolute paths, drive letters, UNC paths, and traversal (`..`). Normalizes path separators to `/`.",
+      "type": "string"
+    },
+    "UserMeta": {
+      "description": "User interaction metadata (favorites, custom notes).",
+      "type": "object",
+      "properties": {
+        "favorite": {
+          "default": false,
+          "type": "boolean"
+        },
+        "notes": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
