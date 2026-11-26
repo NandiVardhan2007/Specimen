@@ -18,6 +18,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build Frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
       - name: Format Check
         run: cargo fmt --all -- --check
       - name: Clippy

@@ -18,14 +18,25 @@ pub use state::AppState;
 
 pub fn build_router(state: AppState) -> Router {
     Router::new()
-        .route("/", get(handlers::handle_home))
+        // API Endpoints for frontend (real library data)
+        .route("/api/status", get(handlers::handle_api_status))
+        .route("/api/collections/{coll_type}", get(handlers::handle_api_collection))
+        .route("/api/items/{item_id}", get(handlers::handle_api_item))
+        .route("/api/sources", get(handlers::handle_api_sources))
+        .route("/api/search", get(handlers::handle_api_search))
+        .route("/api/export", get(handlers::handle_api_export))
+        .route("/api/compare", get(handlers::handle_api_compare))
+        // Static assets from frontend/dist
+        .route("/assets/{*path}", get(handlers::handle_static_asset))
+        // Server-rendered views & fallback
+        .route("/", get(handlers::handle_index))
         .route("/collections/{coll_type}", get(handlers::handle_collection))
         .route("/items/{item_id}", get(handlers::handle_item_detail))
         .route("/sources", get(handlers::handle_sources))
         .route("/search", get(handlers::handle_search))
         .route("/compare", get(handlers::handle_compare))
         .route("/export", get(handlers::handle_export))
-        .route("/api/status", get(handlers::handle_api_status))
+        .fallback(handlers::handle_fallback)
         .layer(axum_mw::from_fn(loopback_security_middleware))
         .with_state(state)
 }
@@ -96,6 +107,22 @@ mod tests {
 
         let req = Request::builder()
             .uri("/compare?a=specimen.palette/item-1&b=specimen.palette/item-2")
+            .header(header::HOST, "127.0.0.1:4000")
+            .body(Body::empty())
+            .unwrap();
+
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_api_endpoints() {
+        let temp = tempfile::tempdir().unwrap();
+        let state = AppState::new(temp.path().to_path_buf());
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/api/collections/palettes")
             .header(header::HOST, "127.0.0.1:4000")
             .body(Body::empty())
             .unwrap();
