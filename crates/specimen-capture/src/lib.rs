@@ -12,8 +12,8 @@ pub mod session;
 pub use browser::{BrowserError, BrowserGuard, LaunchOptions};
 pub use discovery::{find_browser, BrowserInfo};
 pub use driver::{
-    CapturedEvidence, DriverOptions, FlowDriver, FlowDriverOptions, FlowEvidence, LabeledCapture,
-    SinglePageDriver,
+    CapturedEvidence, CrawlDriver, CrawlGroupEvidence, CrawlOptions, DriverOptions, FlowDriver,
+    FlowDriverOptions, FlowEvidence, LabeledCapture, SinglePageDriver,
 };
 pub use evidence::{CaptureManifest, EvidenceWriter};
 pub use policy::{

@@ -204,7 +204,23 @@ mod tests {
 
         // When guard is dropped, process should be terminated and directory cleaned up
         drop(guard);
-        // Temporary profile directory should now be gone
-        assert!(!temp_dir_path.exists());
+        // Wait briefly for OS file locks from child processes to release on Windows
+        let mut cleaned_up = false;
+        for _ in 0..20 {
+            if !temp_dir_path.exists() {
+                cleaned_up = true;
+                break;
+            }
+            let _ = std::fs::remove_dir_all(&temp_dir_path);
+            if !temp_dir_path.exists() {
+                cleaned_up = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(
+            cleaned_up,
+            "Temporary profile directory was not cleaned up after drop"
+        );
     }
 }

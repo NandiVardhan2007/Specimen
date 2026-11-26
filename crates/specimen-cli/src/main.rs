@@ -7,9 +7,9 @@ use url::Url;
 
 use specimen_agent::detect_agents;
 use specimen_capture::{
-    find_browser, resolve_and_validate_host, BrowserGuard, ColorScheme, DriverOptions,
-    EvidenceWriter, FlowDriver, FlowDriverOptions, LaunchOptions, MockSession, RateLimiter,
-    SinglePageDriver, Viewport,
+    find_browser, resolve_and_validate_host, BrowserGuard, ColorScheme, CrawlDriver, CrawlOptions,
+    DriverOptions, EvidenceWriter, FlowDriver, FlowDriverOptions, LaunchOptions, MockSession,
+    RateLimiter, SinglePageDriver, Viewport,
 };
 use specimen_core::{Config, FlowAction, FlowScript, FlowStep, ItemType, Provenance};
 use specimen_extract::{
@@ -20,6 +20,8 @@ use specimen_library::{
     generate_design_md, init_library, normalize_and_save_item, validate_library, DesignDocMeta,
     NormalizeOptions,
 };
+use specimen_mcp::{McpServer, McpServerConfig};
+use specimen_server::run_server;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -143,6 +145,55 @@ enum Commands {
         /// Import completed output.json from manual execution
         #[arg(long)]
         import: Option<PathBuf>,
+    },
+    /// Crawl a website up to a depth/page cap and group captured pages
+    Crawl {
+        /// Target starting URL to crawl
+        url: String,
+
+        /// Destination design library root path
+        #[arg(short, long, default_value = ".")]
+        library: PathBuf,
+
+        /// Maximum link depth to traverse
+        #[arg(short, long, default_value_t = 2)]
+        depth: u32,
+
+        /// Maximum total pages to capture
+        #[arg(short, long, default_value_t = 10)]
+        max_pages: usize,
+
+        /// Allow localhost and private network addresses (SSRF warning)
+        #[arg(long, default_value_t = false)]
+        allow_private: bool,
+
+        /// Run browser in visible headed mode
+        #[arg(long, default_value_t = false)]
+        headed: bool,
+    },
+    /// Start the local web UI on 127.0.0.1 (Invariant 8)
+    Serve {
+        /// Library root path (defaults to current directory)
+        #[arg(short, long, default_value = ".")]
+        library: PathBuf,
+
+        /// Port to bind the server to (defaults to 4000)
+        #[arg(short, long, default_value_t = 4000)]
+        port: u16,
+
+        /// Open browser automatically
+        #[arg(long, default_value_t = false)]
+        open: bool,
+    },
+    /// Start the Model Context Protocol (MCP) server over stdio
+    Mcp {
+        /// Library root path (defaults to current directory)
+        #[arg(short, long, default_value = ".")]
+        library: PathBuf,
+
+        /// Enable the capture_url tool in MCP (disabled by default)
+        #[arg(long, default_value_t = false)]
+        allow_capture: bool,
     },
 }
 
@@ -680,6 +731,83 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Running interpret stage for source: {}", source);
                 println!("No AI agent invoked (--no-ai is active by default in v0.1). Use --manual for manual task bundles.");
             }
+        }
+        Some(Commands::Crawl {
+            url,
+            library,
+            depth,
+            max_pages,
+            allow_private,
+            headed,
+        }) => {
+            let start_url = Url::parse(&url)?;
+            println!("==> Validating URL policy for crawl start: {}", start_url);
+            let resolved_ips = resolve_and_validate_host(&start_url, allow_private)?;
+            println!("    Host verified safe ({} IP(s))", resolved_ips.len());
+
+            let config_path = library.join("specimen.toml");
+            let config = Config::load_or_default(&config_path)?;
+            let rate_limiter = RateLimiter::new(config.capture.rate_limit_rps);
+
+            println!("==> Spawning browser with isolated temporary profile...");
+            let launch_opts = LaunchOptions {
+                headed,
+                ..Default::default()
+            };
+            let _browser = BrowserGuard::launch(&launch_opts)?;
+
+            let crawl_opts = CrawlOptions {
+                max_depth: depth,
+                max_pages,
+                same_origin: true,
+                template_dedupe: true,
+                ..Default::default()
+            };
+
+            let mut session = MockSession::default();
+            println!(
+                "==> Starting BFS crawl (max_depth={}, max_pages={})...",
+                depth, max_pages
+            );
+            let crawl_evidence =
+                CrawlDriver::run(&mut session, &start_url, &crawl_opts, Some(&rate_limiter))
+                    .await?;
+
+            println!("==> Writing crawl evidence to library...");
+            for page in &crawl_evidence.pages {
+                EvidenceWriter::write_atomic(&library, page)?;
+            }
+
+            println!(
+                "\n🎉 Crawl finished! {} page(s) captured, {} duplicate template(s) skipped.",
+                crawl_evidence.pages.len(),
+                crawl_evidence.skipped_duplicates
+            );
+        }
+        Some(Commands::Serve {
+            library,
+            port,
+            open,
+        }) => {
+            println!(
+                "==> Starting Specimen web UI on loopback interface (http://127.0.0.1:{})",
+                port
+            );
+            if open {
+                println!("    Auto-open enabled.");
+            }
+            run_server(library, port).await?;
+        }
+        Some(Commands::Mcp {
+            library,
+            allow_capture,
+        }) => {
+            let config = McpServerConfig {
+                library_root: library,
+                allow_capture,
+            };
+            let server = McpServer::new(config);
+            server.run_stdio()?;
         }
         None => {
             println!(

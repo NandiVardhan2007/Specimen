@@ -9,3 +9,11 @@ authors.workspace = true
 specimen-core = { path = "../specimen-core" }
 specimen-library = { path = "../specimen-library" }
 specimen-export = { path = "../specimen-export" }
+axum.workspace = true
+tokio = { version = "1.43", features = ["rt-multi-thread", "net", "macros"] }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+tempfile = "3.17"

@@ -16,6 +16,7 @@ pub struct CapturedEvidence {
     pub captured_at: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct DriverOptions {
     pub viewports: Vec<Viewport>,
     pub schemes: Vec<ColorScheme>,

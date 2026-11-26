@@ -9,3 +9,8 @@ authors.workspace = true
 specimen-core = { path = "../specimen-core" }
 specimen-library = { path = "../specimen-library" }
 specimen-export = { path = "../specimen-export" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile = "3.17"
