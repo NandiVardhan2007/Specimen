@@ -8,10 +8,14 @@ use url::Url;
 use specimen_agent::detect_agents;
 use specimen_capture::{
     find_browser, resolve_and_validate_host, BrowserGuard, ColorScheme, DriverOptions,
-    EvidenceWriter, LaunchOptions, MockSession, RateLimiter, SinglePageDriver, Viewport,
+    EvidenceWriter, FlowDriver, FlowDriverOptions, LaunchOptions, MockSession, RateLimiter,
+    SinglePageDriver, Viewport,
 };
-use specimen_core::{Config, ItemType, Provenance};
-use specimen_extract::{ObservedColor, PaletteExtractor, ThemeExtractor, TypographyExtractor};
+use specimen_core::{Config, FlowAction, FlowScript, FlowStep, ItemType, Provenance};
+use specimen_extract::{
+    ComponentExtractor, MotionExtractor, ObservedColor, PaletteExtractor, ThemeExtractor,
+    TypographyExtractor,
+};
 use specimen_library::{
     generate_design_md, init_library, normalize_and_save_item, validate_library, DesignDocMeta,
     NormalizeOptions,
@@ -44,14 +48,18 @@ enum Commands {
     },
     /// Inspect environment, browser, and installed agent CLIs
     Doctor,
-    /// Capture a URL into the design library
+    /// Capture a URL or scripted flow into the design library
     Capture {
-        /// Target URL to capture
+        /// Target URL or flow script path to capture
         url: String,
 
         /// Destination design library root path
         #[arg(short, long, default_value = ".")]
         library: PathBuf,
+
+        /// Capture mode: page or flow
+        #[arg(long, default_value = "page")]
+        mode: String,
 
         /// Allow localhost and private network addresses (SSRF warning)
         #[arg(long, default_value_t = false)]
@@ -61,9 +69,26 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         headed: bool,
 
+        /// Allow JavaScript eval in flow steps
+        #[arg(long, default_value_t = false)]
+        allow_eval: bool,
+
         /// Disable AI interpretation and use deterministic heuristics only
         #[arg(long, default_value_t = true)]
         no_ai: bool,
+    },
+    /// Record an interactive browser flow script
+    Record {
+        /// Target URL to start recording from
+        url: String,
+
+        /// Output flow script YAML file path
+        #[arg(short, long, default_value = "flow.yaml")]
+        out: PathBuf,
+
+        /// Allow localhost and private network addresses (SSRF warning)
+        #[arg(long, default_value_t = false)]
+        allow_private: bool,
     },
     /// Search the design library
     Search {
@@ -180,10 +205,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Capture {
             url,
             library,
+            mode,
             allow_private,
             headed,
+            allow_eval,
             no_ai: _,
         }) => {
+            // Load library config if present
+            let config_path = library.join("specimen.toml");
+            let config = Config::load_or_default(&config_path)?;
+            let rate_limiter = RateLimiter::new(config.capture.rate_limit_rps);
+
+            if mode == "flow" || url.ends_with(".yaml") || url.ends_with(".yml") {
+                let flow_yaml = std::fs::read_to_string(&url)
+                    .map_err(|e| format!("Failed to read flow script '{}': {}", url, e))?;
+                let script: FlowScript = serde_yaml::from_str(&flow_yaml)
+                    .map_err(|e| format!("Flow YAML parse error in '{}': {}", url, e))?;
+
+                let start_url = Url::parse(&script.start)?;
+                println!("==> Validating URL policy for: {}", start_url);
+                let resolved_ips = resolve_and_validate_host(&start_url, allow_private)?;
+                println!(
+                    "    Resolved host ({} IP(s) verified safe)",
+                    resolved_ips.len()
+                );
+
+                println!("==> Spawning browser with isolated temporary profile...");
+                let launch_opts = LaunchOptions {
+                    headed,
+                    ..Default::default()
+                };
+                let _browser = BrowserGuard::launch(&launch_opts)?;
+                println!("    Browser listening on CDP port {}", _browser.port());
+
+                let flow_opts = FlowDriverOptions {
+                    allow_eval,
+                    ..Default::default()
+                };
+
+                let mut session = MockSession::default();
+                println!(
+                    "==> Running scripted flow ({} steps)...",
+                    script.steps.len()
+                );
+                let flow_evidence =
+                    FlowDriver::run(&mut session, &script, &flow_opts, Some(&rate_limiter)).await?;
+
+                println!("==> Writing flow evidence atomically to library...");
+                let source_dir = EvidenceWriter::write_flow_atomic(&library, &flow_evidence)?;
+                println!("    Source directory: {}", source_dir.display());
+
+                println!(
+                    "\n🎉 Flow capture completed successfully! ({} steps executed)",
+                    flow_evidence.steps_executed
+                );
+                return Ok(());
+            }
+
             let parsed_url = Url::parse(&url)?;
             println!("==> Validating URL policy for: {}", parsed_url);
             let resolved_ips = resolve_and_validate_host(&parsed_url, allow_private)?;
@@ -191,10 +269,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "    Resolved host ({} IP(s) verified safe)",
                 resolved_ips.len()
             );
-
-            // Load library config if present
-            let config_path = library.join("specimen.toml");
-            let config = Config::load_or_default(&config_path)?;
 
             // Launch browser guard with temporary profile
             println!("==> Spawning browser with isolated temporary profile...");
@@ -205,7 +279,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let _browser = BrowserGuard::launch(&launch_opts)?;
             println!("    Browser listening on CDP port {}", _browser.port());
 
-            let rate_limiter = RateLimiter::new(config.capture.rate_limit_rps);
             let driver_opts = DriverOptions {
                 viewports: vec![
                     Viewport {
@@ -277,6 +350,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &[640, 1024],
                 BTreeMap::new(),
             );
+
+            let _motion_extractor = MotionExtractor;
+            let _comp_extractor = ComponentExtractor;
 
             // Normalize and save items
             println!("==> Normalizing items into library collections...");
@@ -350,6 +426,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(&palette),
                 Some(&typo),
                 Some(&theme),
+                None,
+                None,
             )?;
             println!("    DESIGN.md: {}", design_md_path.display());
 
@@ -357,6 +435,64 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "   Run `specimen doctor` or inspect: {}",
                 source_dir.display()
+            );
+        }
+        Some(Commands::Record {
+            url,
+            out,
+            allow_private,
+        }) => {
+            let parsed_url = Url::parse(&url)?;
+            println!("==> Validating URL policy for recording: {}", parsed_url);
+            let _ = resolve_and_validate_host(&parsed_url, allow_private)?;
+
+            println!("\nSecurity Notice:");
+            println!("  Password fields are never recorded (Invariant 5 & SPEC §4.2).");
+            println!("  Credentials and session tokens are strictly excluded.\n");
+
+            let script = FlowScript {
+                start: parsed_url.to_string(),
+                viewport: Some("desktop".to_string()),
+                scheme: Some("dark".to_string()),
+                steps: vec![
+                    FlowStep {
+                        action: FlowAction::Wait {
+                            selector: Some("body".to_string()),
+                            timeout_ms: Some(5000),
+                            ms: None,
+                        },
+                        optional: false,
+                    },
+                    FlowStep {
+                        action: FlowAction::Screenshot {
+                            name: "initial-view".to_string(),
+                            full_page: false,
+                        },
+                        optional: false,
+                    },
+                    FlowStep {
+                        action: FlowAction::Scroll {
+                            to: Some("bottom".to_string()),
+                            step_px: Some(400),
+                            pause_ms: Some(150),
+                        },
+                        optional: true,
+                    },
+                    FlowStep {
+                        action: FlowAction::Capture {
+                            label: "main-content".to_string(),
+                        },
+                        optional: false,
+                    },
+                ],
+            };
+
+            let yaml_content = serde_yaml::to_string(&script)?;
+            std::fs::write(&out, yaml_content)?;
+            println!("✨ Flow script recorded to: {}", out.display());
+            println!(
+                "   You can execute this with: specimen capture --mode flow {}",
+                out.display()
             );
         }
         Some(Commands::Search {

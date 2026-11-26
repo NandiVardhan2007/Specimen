@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ComponentData",
+  "description": "Schema for captured component items (`specimen.item/1` with type `component`).",
+  "type": "object",
+  "required": [
+    "html_skeleton",
+    "name",
+    "role",
+    "selector",
+    "states"
+  ],
+  "properties": {
+    "html_skeleton": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "role": {
+      "description": "\"button\", \"link\", \"input\", \"select\", \"checkbox\", \"card\", \"badge\", \"tabs\", \"modal\", \"nav\", \"table\", \"tooltip\", \"toast\", \"unknown\"",
+      "type": "string"
+    },
+    "selector": {
+      "type": "string"
+    },
+    "state_screenshots": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "states": {
+      "description": "Interactivity states: \"default\", \"hover\", \"focus\", \"active\", \"disabled\"",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/StateStyles"
+      }
+    },
+    "variant": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "variants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ComponentVariant"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "ComponentVariant": {
+      "description": "A component variant declaration (e.g. secondary button).",
+      "type": "object",
+      "required": [
+        "name",
+        "selector"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "StateStyles": {
+      "description": "Computed CSS styles for a specific interaction state (e.g., hover, focus).",
+      "type": "object",
+      "required": [
+        "styles"
+      ],
+      "properties": {
+        "styles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

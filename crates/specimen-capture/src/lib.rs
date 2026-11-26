@@ -11,7 +11,10 @@ pub mod session;
 
 pub use browser::{BrowserError, BrowserGuard, LaunchOptions};
 pub use discovery::{find_browser, BrowserInfo};
-pub use driver::{CapturedEvidence, DriverOptions, SinglePageDriver};
+pub use driver::{
+    CapturedEvidence, DriverOptions, FlowDriver, FlowDriverOptions, FlowEvidence, LabeledCapture,
+    SinglePageDriver,
+};
 pub use evidence::{CaptureManifest, EvidenceWriter};
 pub use policy::{
     is_private_or_restricted, resolve_and_validate_host, validate_url_syntax, PolicyError,

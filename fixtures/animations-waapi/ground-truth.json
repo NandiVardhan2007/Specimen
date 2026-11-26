@@ -1,0 +1,33 @@
+{
+  "name": "animations-waapi",
+  "expected_animations": [
+    {
+      "name": "spinner-rotation",
+      "kind": "waapi",
+      "driver": "waapi",
+      "timing": {
+        "duration_ms": 1000.0,
+        "delay_ms": 0.0,
+        "easing": "linear",
+        "iterations": -1.0,
+        "direction": "normal",
+        "fill": "none"
+      },
+      "target_selector": ".spinner"
+    },
+    {
+      "name": "slider-slide",
+      "kind": "waapi",
+      "driver": "waapi",
+      "timing": {
+        "duration_ms": 800.0,
+        "delay_ms": 100.0,
+        "easing": "ease-out",
+        "iterations": 1.0,
+        "direction": "normal",
+        "fill": "forwards"
+      },
+      "target_selector": ".slider"
+    }
+  ]
+}

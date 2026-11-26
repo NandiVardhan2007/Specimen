@@ -35,6 +35,24 @@ pub trait Session: Send {
     fn sample_frames(&mut self) -> impl std::future::Future<Output = Result<Trace>> + Send;
     fn network_log(&self) -> NetworkLog;
     fn scroll_by(&mut self, delta_y: i32) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn hover(&mut self, selector: &str) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn click(
+        &mut self,
+        selector: Option<&str>,
+        text: Option<&str>,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn type_text(
+        &mut self,
+        selector: &str,
+        text: &str,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn press_key(&mut self, key: &str) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn wait_for_selector(
+        &mut self,
+        selector: &str,
+        timeout_ms: u64,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn evaluate(&mut self, script: &str) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 
 /// In-memory mock session for deterministic testing of drivers and extractors.
@@ -49,6 +67,7 @@ pub struct MockSession {
     pub animations_data: Vec<AnimationRecord>,
     pub network_entries: Vec<NetworkEntry>,
     pub scroll_positions: Vec<i32>,
+    pub recorded_actions: Vec<String>,
 }
 
 impl Session for MockSession {
@@ -108,6 +127,39 @@ impl Session for MockSession {
 
     async fn scroll_by(&mut self, delta_y: i32) -> Result<()> {
         self.scroll_positions.push(delta_y);
+        Ok(())
+    }
+
+    async fn hover(&mut self, selector: &str) -> Result<()> {
+        self.recorded_actions.push(format!("hover:{}", selector));
+        Ok(())
+    }
+
+    async fn click(&mut self, selector: Option<&str>, text: Option<&str>) -> Result<()> {
+        self.recorded_actions
+            .push(format!("click:{:?}:{:?}", selector, text));
+        Ok(())
+    }
+
+    async fn type_text(&mut self, selector: &str, text: &str) -> Result<()> {
+        self.recorded_actions
+            .push(format!("type:{}:{}", selector, text));
+        Ok(())
+    }
+
+    async fn press_key(&mut self, key: &str) -> Result<()> {
+        self.recorded_actions.push(format!("press:{}", key));
+        Ok(())
+    }
+
+    async fn wait_for_selector(&mut self, selector: &str, timeout_ms: u64) -> Result<()> {
+        self.recorded_actions
+            .push(format!("wait_selector:{}:{}ms", selector, timeout_ms));
+        Ok(())
+    }
+
+    async fn evaluate(&mut self, script: &str) -> Result<()> {
+        self.recorded_actions.push(format!("eval:{}", script));
         Ok(())
     }
 }

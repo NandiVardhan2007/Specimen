@@ -1,5 +1,5 @@
 use crate::error::Result;
-use specimen_core::{PaletteData, ThemeData, TypographyData};
+use specimen_core::{AnimationData, ComponentData, PaletteData, ThemeData, TypographyData};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -17,6 +17,8 @@ pub fn generate_design_md(
     palette: Option<&PaletteData>,
     typography: Option<&TypographyData>,
     theme: Option<&ThemeData>,
+    animations: Option<&[AnimationData]>,
+    components: Option<&[ComponentData]>,
 ) -> Result<PathBuf> {
     let mut doc = String::new();
 
@@ -120,6 +122,44 @@ pub fn generate_design_md(
         doc.push('\n');
     }
 
+    // 6. Motion & Animations
+    if let Some(anims) = animations {
+        if !anims.is_empty() {
+            doc.push_str("## Motion & Animations\n\n");
+            doc.push_str("| Name | Kind | Driver | Duration | Easing | Trigger |\n");
+            doc.push_str("|---|---|---|---|---|---|\n");
+            for a in anims {
+                let trigger_str = match &a.trigger {
+                    Some(t) => format!("`{}`", t.r#type),
+                    None => "-".to_string(),
+                };
+                doc.push_str(&format!(
+                    "| `{}` | `{}` | `{}` | {}ms | `{}` | {} |\n",
+                    a.name, a.kind, a.driver, a.timing.duration_ms, a.timing.easing, trigger_str
+                ));
+            }
+            doc.push('\n');
+        }
+    }
+
+    // 7. Components
+    if let Some(comps) = components {
+        if !comps.is_empty() {
+            doc.push_str("## Components\n\n");
+            doc.push_str("| Name | Role | Variant | Selector | States |\n");
+            doc.push_str("|---|---|---|---|---|\n");
+            for c in comps {
+                let states_str = c.states.keys().cloned().collect::<Vec<_>>().join(", ");
+                let variant_str = c.variant.as_deref().unwrap_or("-");
+                doc.push_str(&format!(
+                    "| **{}** | `{}` | `{}` | `{}` | {} |\n",
+                    c.name, c.role, variant_str, c.selector, states_str
+                ));
+            }
+            doc.push('\n');
+        }
+    }
+
     let file_path = dest_dir.join("DESIGN.md");
     fs::write(&file_path, doc)?;
     Ok(file_path)
@@ -157,7 +197,8 @@ mod tests {
             pairs: Vec::new(),
         };
 
-        let path = generate_design_md(temp.path(), &meta, Some(&pal), None, None).unwrap();
+        let path =
+            generate_design_md(temp.path(), &meta, Some(&pal), None, None, None, None).unwrap();
         assert!(path.exists());
         let content = fs::read_to_string(path).unwrap();
         assert!(content.contains("specimen: 1"));

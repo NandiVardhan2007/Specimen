@@ -6,8 +6,8 @@ use std::fs;
 use std::path::Path;
 
 use specimen_core::{
-    to_canonical_json, Config, EffectData, IconData, Item, ItemId, ItemType, LayoutData,
-    PaletteData, ThemeData, TypographyData,
+    to_canonical_json, AnimationData, ComponentData, Config, EffectData, IconData, Item, ItemId,
+    ItemType, LayoutData, PaletteData, ThemeData, TypographyData,
 };
 
 use crate::error::Result;
@@ -222,7 +222,26 @@ fn validate_item_file(
                 item_valid = false;
             }
         }
-        _ => {}
+        ItemType::Animation => {
+            if let Err(e) = serde_json::from_value::<AnimationData>(item.data) {
+                report.errors.push(format!(
+                    "{}: AnimationData schema validation failed: {}",
+                    item_file.display(),
+                    e
+                ));
+                item_valid = false;
+            }
+        }
+        ItemType::Component => {
+            if let Err(e) = serde_json::from_value::<ComponentData>(item.data) {
+                report.errors.push(format!(
+                    "{}: ComponentData schema validation failed: {}",
+                    item_file.display(),
+                    e
+                ));
+                item_valid = false;
+            }
+        }
     }
 
     // License validation

@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::driver::CapturedEvidence;
-use crate::session::Result;
+use crate::driver::{CapturedEvidence, FlowEvidence};
+use crate::session::{NetworkEntry, NetworkLog, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaptureManifest {
@@ -84,9 +84,10 @@ impl EvidenceWriter {
             fs::write(vp_dir.join(filename), &img.bytes)?;
         }
 
-        // 3. Write network.json
+        // 3. Write network.json (with sensitive query tokens redacted)
+        let clean_network_log = Self::sanitize_network_log(&evidence.network_log);
         let net_file = dest.join("evidence").join("network.json");
-        let net_json = serde_json::to_string_pretty(&evidence.network_log)?;
+        let net_json = serde_json::to_string_pretty(&clean_network_log)?;
         fs::write(net_file, net_json)?;
 
         // 4. Write manifest.json
@@ -129,6 +130,189 @@ impl EvidenceWriter {
 
         Ok(())
     }
+
+    /// Writes flow-captured evidence into `sources/<host>/<timestamp>/` atomically.
+    pub fn write_flow_atomic(library_root: &Path, flow: &FlowEvidence) -> Result<PathBuf> {
+        let host = flow
+            .start_url
+            .host_str()
+            .unwrap_or("unknown")
+            .to_ascii_lowercase();
+        let port_suffix = match flow.start_url.port() {
+            Some(p) if p != 80 && p != 443 => format!("_{}", p),
+            _ => String::new(),
+        };
+        let host_folder = format!("{}{}", host, port_suffix);
+
+        // Current UTC timestamp
+        let ts_folder = chrono_iso_now().replace(':', "");
+        let final_source_dir = library_root
+            .join("sources")
+            .join(host_folder)
+            .join(&ts_folder);
+        let partial_dir = final_source_dir.with_extension("partial");
+
+        if partial_dir.exists() {
+            let _ = fs::remove_dir_all(&partial_dir);
+        }
+
+        if let Err(e) = Self::write_flow_internal(&partial_dir, flow) {
+            let _ = fs::remove_dir_all(&partial_dir);
+            return Err(e);
+        }
+
+        if let Some(parent) = final_source_dir.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::rename(&partial_dir, &final_source_dir)?;
+
+        Ok(final_source_dir)
+    }
+
+    fn write_flow_internal(dest: &Path, flow: &FlowEvidence) -> Result<()> {
+        let captures_dir = dest.join("evidence").join("captures");
+        let screenshots_dir = dest.join("screenshots");
+        fs::create_dir_all(&captures_dir)?;
+        fs::create_dir_all(&screenshots_dir)?;
+
+        for cap in &flow.captures {
+            let cap_dir = captures_dir.join(&cap.label);
+            fs::create_dir_all(&cap_dir)?;
+            fs::write(cap_dir.join("dom.json"), &cap.snapshot.raw_json)?;
+            fs::write(cap_dir.join("screenshot.png"), &cap.screenshot.bytes)?;
+        }
+
+        for (name, img) in &flow.screenshots {
+            let file = screenshots_dir.join(format!("{}.png", name));
+            fs::write(file, &img.bytes)?;
+        }
+
+        let manifest = CaptureManifest {
+            schema: "specimen.manifest/1".to_string(),
+            url: flow.start_url.to_string(),
+            captured_at: chrono_iso_now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            viewports: vec!["flow".to_string()],
+            schemes: vec!["default".to_string()],
+            timing_ms: flow.nav_outcome.timing_ms,
+            warnings: Vec::new(),
+        };
+        fs::write(
+            dest.join("manifest.json"),
+            serde_json::to_string_pretty(&manifest)?,
+        )?;
+
+        let report_content = format!(
+            "# Flow Capture Report: {}\n\n- **Status**: {}\n- **Steps Executed**: {}\n- **Captures**: {}\n- **Screenshots**: {}\n\n*Notice: No credentials, cookies, or secrets were stored.*\n",
+            flow.start_url,
+            flow.nav_outcome.status,
+            flow.steps_executed,
+            flow.captures.len(),
+            flow.screenshots.len(),
+        );
+        fs::write(dest.join("report.md"), report_content)?;
+
+        Ok(())
+    }
+
+    /// Redacts tokens and credentials from query parameters and headers (Invariant 5).
+    pub fn sanitize_network_log(log: &NetworkLog) -> NetworkLog {
+        let sensitive_keys = [
+            "token",
+            "access_token",
+            "auth",
+            "secret",
+            "password",
+            "key",
+            "session",
+            "api_key",
+        ];
+        let mut sanitized = NetworkLog::default();
+
+        for entry in &log.entries {
+            let mut clean_url = entry.url.clone();
+            if let Ok(mut parsed) = url::Url::parse(&clean_url) {
+                let pairs: Vec<(String, String)> = parsed
+                    .query_pairs()
+                    .map(|(k, v)| {
+                        if sensitive_keys
+                            .iter()
+                            .any(|&sk| k.to_ascii_lowercase().contains(sk))
+                        {
+                            (k.to_string(), "[REDACTED]".to_string())
+                        } else {
+                            (k.to_string(), v.to_string())
+                        }
+                    })
+                    .collect();
+                parsed.query_pairs_mut().clear().extend_pairs(pairs);
+                clean_url = parsed.to_string();
+            }
+            sanitized.entries.push(NetworkEntry {
+                url: clean_url,
+                method: entry.method.clone(),
+                status: entry.status,
+                mime: entry.mime.clone(),
+                size_bytes: entry.size_bytes,
+            });
+        }
+        sanitized
+    }
+}
+
+fn chrono_iso_now() -> String {
+    let now = std::time::SystemTime::now();
+    let duration = now
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let total_secs = duration.as_secs();
+    let days = total_secs / 86400;
+    let rem_secs = total_secs % 86400;
+    let hours = rem_secs / 3600;
+    let minutes = (rem_secs % 3600) / 60;
+    let seconds = rem_secs % 60;
+
+    let mut year = 1970;
+    let mut d = days;
+    loop {
+        let leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+        let days_in_year = if leap { 366 } else { 365 };
+        if d < days_in_year {
+            break;
+        }
+        d -= days_in_year;
+        year += 1;
+    }
+
+    let leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+    let month_days = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    let mut month = 1;
+    for &md in &month_days {
+        if d < md {
+            break;
+        }
+        d -= md;
+        month += 1;
+    }
+    let day = d + 1;
+
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hours, minutes, seconds
+    )
 }
 
 #[cfg(test)]

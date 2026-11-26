@@ -1,0 +1,204 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AnimationData",
+  "description": "Schema for captured motion items (`specimen.item/1` with type `animation`).",
+  "type": "object",
+  "required": [
+    "driver",
+    "keyframes",
+    "kind",
+    "name",
+    "timing"
+  ],
+  "properties": {
+    "driver": {
+      "description": "\"css\", \"waapi\", \"gsap\", \"framer-motion\", \"lottie\", \"anime\", \"unknown\"",
+      "type": "string"
+    },
+    "keyframes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Keyframe"
+      }
+    },
+    "kind": {
+      "description": "\"css-keyframes\", \"css-transition\", \"waapi\", \"js-sampled\", \"lottie\", \"canvas-recording\"",
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "preview": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PreviewClip"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stagger_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "format": "double"
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Target"
+      }
+    },
+    "timing": {
+      "$ref": "#/definitions/Timing"
+    },
+    "trigger": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Trigger"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Keyframe": {
+      "description": "Keyframe in an animation timeline.",
+      "type": "object",
+      "required": [
+        "offset",
+        "props"
+      ],
+      "properties": {
+        "easing": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "offset": {
+          "type": "number",
+          "format": "double"
+        },
+        "props": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "PreviewClip": {
+      "description": "Recorded preview clip metadata.",
+      "type": "object",
+      "required": [
+        "clip",
+        "duration_ms",
+        "fps"
+      ],
+      "properties": {
+        "clip": {
+          "type": "string"
+        },
+        "duration_ms": {
+          "type": "number",
+          "format": "double"
+        },
+        "fps": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Target": {
+      "description": "Target element for an animation.",
+      "type": "object",
+      "required": [
+        "selector"
+      ],
+      "properties": {
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "selector": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Timing": {
+      "description": "Timing parameters for an animation.",
+      "type": "object",
+      "required": [
+        "duration_ms"
+      ],
+      "properties": {
+        "delay_ms": {
+          "default": 0.0,
+          "type": "number",
+          "format": "double"
+        },
+        "direction": {
+          "default": "normal",
+          "type": "string"
+        },
+        "duration_ms": {
+          "type": "number",
+          "format": "double"
+        },
+        "easing": {
+          "default": "ease",
+          "type": "string"
+        },
+        "fill": {
+          "default": "none",
+          "type": "string"
+        },
+        "iterations": {
+          "default": 1.0,
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Trigger": {
+      "description": "Trigger condition for an animation.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "selector": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "threshold": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "type": {
+          "description": "\"load\", \"hover\", \"focus\", \"click\", \"scroll-into-view\", \"scroll-linked\", \"timer\", \"media\", \"unknown\"",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

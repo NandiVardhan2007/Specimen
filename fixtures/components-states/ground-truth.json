@@ -1,0 +1,37 @@
+{
+  "name": "components-states",
+  "expected_components": [
+    {
+      "role": "button",
+      "name": "Primary Button",
+      "selector": ".btn-primary",
+      "variant": "primary",
+      "states": ["default", "hover", "focus", "active", "disabled"]
+    },
+    {
+      "role": "button",
+      "name": "Secondary Button",
+      "selector": ".btn-secondary",
+      "variant": "secondary",
+      "states": ["default", "hover"]
+    },
+    {
+      "role": "input",
+      "name": "Text Input",
+      "selector": ".input-text",
+      "states": ["default", "focus", "disabled"]
+    },
+    {
+      "role": "card",
+      "name": "Card Container",
+      "selector": ".card",
+      "states": ["default"]
+    },
+    {
+      "role": "badge",
+      "name": "Badge Pill",
+      "selector": ".badge",
+      "states": ["default"]
+    }
+  ]
+}

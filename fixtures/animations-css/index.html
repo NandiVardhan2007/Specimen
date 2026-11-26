@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CSS Animations Fixture</title>
+  <style>
+    @keyframes fade-up {
+      0% {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    .feature-card {
+      animation: fade-up 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      background: #f8fafc;
+      padding: 24px;
+      border-radius: 8px;
+    }
+
+    .badge-pulse {
+      animation: pulse 1200ms ease-in-out infinite;
+      display: inline-block;
+      padding: 4px 8px;
+      background: #ef4444;
+      color: white;
+    }
+
+    .btn-hover {
+      background-color: #2563eb;
+      color: #ffffff;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      transition: background-color 200ms ease-in-out, transform 150ms ease;
+    }
+
+    .btn-hover:hover {
+      background-color: #1d4ed8;
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+  <div class="feature-card">
+    <h2>Feature Card</h2>
+    <span class="badge-pulse">Live</span>
+    <button class="btn-hover">Hover me</button>
+  </div>
+</body>
+</html>

@@ -8,14 +8,20 @@ use crate::error::{CoreError, Result};
 use crate::id::ItemId;
 use crate::path::RelPath;
 
+pub mod animation;
+pub mod component;
 pub mod effect;
+pub mod flow;
 pub mod icon;
 pub mod layout;
 pub mod palette;
 pub mod theme;
 pub mod typography;
 
+pub use animation::{AnimationData, Keyframe, PreviewClip, Target, Timing, Trigger};
+pub use component::{ComponentData, ComponentVariant, StateStyles};
 pub use effect::EffectData;
+pub use flow::{FlowAction, FlowScript, FlowStep};
 pub use icon::{IconData, IconSetInfo};
 pub use layout::LayoutData;
 pub use palette::{ColorUsage, ContrastPair, PaletteColor, PaletteData};

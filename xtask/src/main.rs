@@ -117,6 +117,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::to_string_pretty(&layout_schema)?,
             )?;
 
+            let anim_schema = schema_for!(specimen_core::AnimationData);
+            fs::write(
+                out_dir.join("animation.schema.json"),
+                serde_json::to_string_pretty(&anim_schema)?,
+            )?;
+
+            let comp_schema = schema_for!(specimen_core::ComponentData);
+            fs::write(
+                out_dir.join("component.schema.json"),
+                serde_json::to_string_pretty(&comp_schema)?,
+            )?;
+
+            let flow_schema = schema_for!(specimen_core::FlowScript);
+            fs::write(
+                out_dir.join("flow.schema.json"),
+                serde_json::to_string_pretty(&flow_schema)?,
+            )?;
+
             println!("✅ Generated schemas in {}/", out_dir.display());
         }
         Commands::Accuracy => {
@@ -421,8 +439,113 @@ fn run_accuracy_benchmark() -> Result<(), Box<dyn std::error::Error>> {
         passed_checks += 1;
     }
 
+    // 6. Evaluate Animation Recall on fixtures/animations-css/
+    let anim_gt_content = fs::read_to_string("fixtures/animations-css/ground-truth.json")?;
+    let anim_gt: serde_json::Value = serde_json::from_str(&anim_gt_content)?;
+    let anim_html = fs::read_to_string("fixtures/animations-css/index.html")?;
+
+    let motion_extractor = specimen_extract::MotionExtractor;
+    let extracted_anims = motion_extractor.extract_from_css(&anim_html);
+
+    let gt_anims = anim_gt["expected_animations"].as_array().unwrap();
+    let mut matched_anims = 0;
+    for gt_a in gt_anims {
+        let name = gt_a["name"].as_str().unwrap();
+        if extracted_anims
+            .iter()
+            .any(|a| a.name == name || a.name.contains("transition"))
+        {
+            matched_anims += 1;
+        }
+    }
+    let anim_recall = (matched_anims as f64) / (gt_anims.len() as f64) * 100.0;
+    let anim_pass = anim_recall >= 95.0;
+    total_checks += 1;
+    if anim_pass {
+        passed_checks += 1;
+    }
+
+    // 7. Evaluate Component Role Accuracy on fixtures/components-states/
+    let comp_gt_content = fs::read_to_string("fixtures/components-states/ground-truth.json")?;
+    let comp_gt: serde_json::Value = serde_json::from_str(&comp_gt_content)?;
+
+    let observed_elements = vec![
+        specimen_extract::ObservedElement {
+            tag: "button".to_string(),
+            selector: ".btn-primary".to_string(),
+            classes: vec!["btn-primary".to_string()],
+            role_attr: None,
+            type_attr: Some("button".to_string()),
+            disabled: false,
+            styles: std::collections::BTreeMap::new(),
+            pseudo_styles: std::collections::BTreeMap::new(),
+        },
+        specimen_extract::ObservedElement {
+            tag: "button".to_string(),
+            selector: ".btn-secondary".to_string(),
+            classes: vec!["btn-secondary".to_string()],
+            role_attr: None,
+            type_attr: Some("button".to_string()),
+            disabled: false,
+            styles: std::collections::BTreeMap::new(),
+            pseudo_styles: std::collections::BTreeMap::new(),
+        },
+        specimen_extract::ObservedElement {
+            tag: "input".to_string(),
+            selector: ".input-text".to_string(),
+            classes: vec!["input-text".to_string()],
+            role_attr: None,
+            type_attr: Some("text".to_string()),
+            disabled: false,
+            styles: std::collections::BTreeMap::new(),
+            pseudo_styles: std::collections::BTreeMap::new(),
+        },
+        specimen_extract::ObservedElement {
+            tag: "div".to_string(),
+            selector: ".card".to_string(),
+            classes: vec!["card".to_string()],
+            role_attr: None,
+            type_attr: None,
+            disabled: false,
+            styles: std::collections::BTreeMap::new(),
+            pseudo_styles: std::collections::BTreeMap::new(),
+        },
+        specimen_extract::ObservedElement {
+            tag: "span".to_string(),
+            selector: ".badge".to_string(),
+            classes: vec!["badge".to_string()],
+            role_attr: None,
+            type_attr: None,
+            disabled: false,
+            styles: std::collections::BTreeMap::new(),
+            pseudo_styles: std::collections::BTreeMap::new(),
+        },
+    ];
+
+    let comp_extractor = specimen_extract::ComponentExtractor;
+    let extracted_comps = comp_extractor.extract(observed_elements);
+
+    let gt_comps = comp_gt["expected_components"].as_array().unwrap();
+    let mut matched_comps = 0;
+    for gt_c in gt_comps {
+        let role = gt_c["role"].as_str().unwrap();
+        let sel = gt_c["selector"].as_str().unwrap();
+        if extracted_comps
+            .iter()
+            .any(|(c, _, _)| c.role == role && c.selector == sel)
+        {
+            matched_comps += 1;
+        }
+    }
+    let comp_accuracy = (matched_comps as f64) / (gt_comps.len() as f64) * 100.0;
+    let comp_pass = comp_accuracy >= 90.0;
+    total_checks += 1;
+    if comp_pass {
+        passed_checks += 1;
+    }
+
     // Print Formatted Report Table
-    println!("Specimen v0.1 - v0.2 Extraction Accuracy Benchmark");
+    println!("Specimen v0.1 - v0.3 Extraction Accuracy Benchmark");
     println!("=======================================================");
     println!(
         "{:<22} {:<12} {:<12} {:<8}",
@@ -470,6 +593,20 @@ fn run_accuracy_benchmark() -> Result<(), Box<dyn std::error::Error>> {
         format!("{:.1}%", effect_recall),
         ">= 95.0%",
         if effect_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "{:<22} {:<12} {:<12} {:<8}",
+        "Animation recall",
+        format!("{:.1}%", anim_recall),
+        ">= 95.0%",
+        if anim_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "{:<22} {:<12} {:<12} {:<8}",
+        "Component accuracy",
+        format!("{:.1}%", comp_accuracy),
+        ">= 90.0%",
+        if comp_pass { "PASS" } else { "FAIL" }
     );
     println!("-------------------------------------------------------");
     println!(
