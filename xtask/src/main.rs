@@ -64,13 +64,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::Schemas => {
             println!("==> Generating JSON Schemas...");
-            let schema = schema_for!(Config);
-            let json = serde_json::to_string_pretty(&schema)?;
             let out_dir = Path::new("schemas");
             fs::create_dir_all(out_dir)?;
-            let out_file = out_dir.join("config.schema.json");
-            fs::write(&out_file, json)?;
-            println!("Generated schema: {}", out_file.display());
+
+            let cfg_schema = schema_for!(Config);
+            fs::write(
+                out_dir.join("config.schema.json"),
+                serde_json::to_string_pretty(&cfg_schema)?,
+            )?;
+
+            let item_schema = schema_for!(specimen_core::Item<serde_json::Value>);
+            fs::write(
+                out_dir.join("item.schema.json"),
+                serde_json::to_string_pretty(&item_schema)?,
+            )?;
+
+            let pal_schema = schema_for!(specimen_core::PaletteData);
+            fs::write(
+                out_dir.join("palette.schema.json"),
+                serde_json::to_string_pretty(&pal_schema)?,
+            )?;
+
+            let typo_schema = schema_for!(specimen_core::TypographyData);
+            fs::write(
+                out_dir.join("typography.schema.json"),
+                serde_json::to_string_pretty(&typo_schema)?,
+            )?;
+
+            let thm_schema = schema_for!(specimen_core::ThemeData);
+            fs::write(
+                out_dir.join("theme.schema.json"),
+                serde_json::to_string_pretty(&thm_schema)?,
+            )?;
+
+            println!("✅ Generated schemas in {}/", out_dir.display());
         }
         Commands::Fixtures => {
             println!("==> Refreshing fixtures (stub for Phase 0)...");

@@ -1,0 +1,14 @@
+{
+  "fixture": "basic-tokens",
+  "colors": [
+    { "hex": "#0b0d12", "role": "background" },
+    { "hex": "#7c5cff", "role": "accent" },
+    { "hex": "#f0f2f5", "role": "text" },
+    { "hex": "#171a21", "role": "surface" },
+    { "hex": "#262a36", "role": "border" }
+  ],
+  "spacing_base_unit": 8,
+  "spacing_scale": [8, 16, 24, 32],
+  "radii_px": [4, 8, 16],
+  "breakpoints_px": [640, 1024]
+}

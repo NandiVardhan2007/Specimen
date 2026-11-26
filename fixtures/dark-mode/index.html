@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dark Mode Fixture</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #111827;
+      --surface: #f3f4f6;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #09090b;
+        --text: #fafafa;
+        --surface: #18181b;
+      }
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 40px;
+    }
+    .panel {
+      background-color: var(--surface);
+      padding: 24px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h2>Dual Mode Theme</h2>
+    <p>Supports both light and dark scheme emulation.</p>
+  </div>
+</body>
+</html>

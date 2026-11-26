@@ -8,6 +8,14 @@ use crate::error::{CoreError, Result};
 use crate::id::ItemId;
 use crate::path::RelPath;
 
+pub mod palette;
+pub mod theme;
+pub mod typography;
+
+pub use palette::{ColorUsage, ContrastPair, PaletteColor, PaletteData};
+pub use theme::ThemeData;
+pub use typography::{FontFamily, FontFileMeta, FontLicenseHints, TypeScaleEntry, TypographyData};
+
 /// High-level item types supported by Specimen.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,

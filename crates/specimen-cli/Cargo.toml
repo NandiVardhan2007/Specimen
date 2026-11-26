@@ -12,6 +12,9 @@ path = "src/main.rs"
 [dependencies]
 specimen-core = { path = "../specimen-core" }
 specimen-capture = { path = "../specimen-capture" }
+specimen-extract = { path = "../specimen-extract" }
 specimen-library = { path = "../specimen-library" }
 specimen-agent = { path = "../specimen-agent" }
 clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
+url = "2.5"

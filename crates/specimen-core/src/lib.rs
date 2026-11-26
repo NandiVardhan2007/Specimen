@@ -17,4 +17,8 @@ pub use error::{CoreError, Result};
 pub use id::ItemId;
 pub use path::RelPath;
 pub use rounding::{round_2, round_4, round_f64};
-pub use schema::{Annotations, Item, ItemType, License, LicenseStatus, Provenance, UserMeta};
+pub use schema::{
+    Annotations, ColorUsage, ContrastPair, FontFamily, FontFileMeta, FontLicenseHints, Item,
+    ItemType, License, LicenseStatus, PaletteColor, PaletteData, Provenance, ThemeData,
+    TypeScaleEntry, TypographyData, UserMeta,
+};
