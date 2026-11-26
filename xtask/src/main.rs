@@ -1,6 +1,11 @@
 #![forbid(unsafe_code)]
 
 use clap::{Parser, Subcommand};
+use schemars::schema_for;
+use specimen_core::Config;
+use std::fs;
+use std::path::Path;
+use std::process::{Command, ExitStatus};
 
 #[derive(Parser, Debug)]
 #[command(name = "xtask", about = "Development automation for Specimen")]
@@ -21,12 +26,58 @@ enum Commands {
     Browser,
 }
 
-fn main() {
+fn run_step(desc: &str, mut cmd: Command) -> Result<(), String> {
+    println!("==> Running: {}", desc);
+    let status: ExitStatus = cmd
+        .status()
+        .map_err(|e| format!("Failed to execute '{}': {}", desc, e))?;
+    if !status.success() {
+        return Err(format!("Step '{}' failed with status: {}", desc, status));
+    }
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Check => println!("xtask: check (running fmt, clippy, tests...)"),
-        Commands::Schemas => println!("xtask: regenerating schemas..."),
-        Commands::Fixtures => println!("xtask: refreshing fixtures..."),
-        Commands::Browser => println!("xtask: running browser tests..."),
+        Commands::Check => {
+            let mut fmt_cmd = Command::new("cargo");
+            fmt_cmd.args(["fmt", "--all", "--", "--check"]);
+            run_step("cargo fmt check", fmt_cmd)?;
+
+            let mut clippy_cmd = Command::new("cargo");
+            clippy_cmd.args([
+                "clippy",
+                "--workspace",
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ]);
+            run_step("cargo clippy check", clippy_cmd)?;
+
+            let mut test_cmd = Command::new("cargo");
+            test_cmd.args(["test", "--workspace"]);
+            run_step("cargo test", test_cmd)?;
+
+            println!("\n✅ All xtask checks passed successfully!");
+        }
+        Commands::Schemas => {
+            println!("==> Generating JSON Schemas...");
+            let schema = schema_for!(Config);
+            let json = serde_json::to_string_pretty(&schema)?;
+            let out_dir = Path::new("schemas");
+            fs::create_dir_all(out_dir)?;
+            let out_file = out_dir.join("config.schema.json");
+            fs::write(&out_file, json)?;
+            println!("Generated schema: {}", out_file.display());
+        }
+        Commands::Fixtures => {
+            println!("==> Refreshing fixtures (stub for Phase 0)...");
+        }
+        Commands::Browser => {
+            println!("==> Running browser tests (stub for Phase 0)...");
+        }
     }
+    Ok(())
 }

@@ -1,0 +1,354 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Config",
+  "description": "Full `specimen.toml` configuration matching SPEC §11.",
+  "type": "object",
+  "properties": {
+    "ai": {
+      "default": {
+        "agent": "auto",
+        "max_items_per_call": 40,
+        "require": false,
+        "timeout_s": 300
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/AiConfig"
+        }
+      ]
+    },
+    "assets": {
+      "default": {
+        "restricted_dir": "assets-restricted",
+        "store": "all"
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/AssetsConfig"
+        }
+      ]
+    },
+    "capture": {
+      "default": {
+        "rate_limit_rps": 1.0,
+        "robots": "respect",
+        "schemes": [
+          "light",
+          "dark"
+        ],
+        "timeout_s": 60,
+        "user_agent": "default",
+        "viewports": [
+          {
+            "dpr": 2.0,
+            "height": 844,
+            "name": "mobile",
+            "width": 390
+          },
+          {
+            "dpr": 2.0,
+            "height": 1024,
+            "name": "tablet",
+            "width": 768
+          },
+          {
+            "dpr": 1.0,
+            "height": 800,
+            "name": "laptop",
+            "width": 1280
+          },
+          {
+            "dpr": 1.0,
+            "height": 1080,
+            "name": "desktop",
+            "width": 1920
+          }
+        ]
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/CaptureConfig"
+        }
+      ]
+    },
+    "export": {
+      "default": {
+        "names": {}
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExportConfig"
+        }
+      ]
+    },
+    "library": {
+      "default": {
+        "name": "My design library",
+        "notice_acknowledged": false,
+        "schema_version": 1
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/LibraryConfig"
+        }
+      ]
+    },
+    "mcp": {
+      "default": {
+        "allow_capture": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/McpConfig"
+        }
+      ]
+    },
+    "privacy": {
+      "default": {
+        "redact_headers": [
+          "authorization",
+          "cookie",
+          "set-cookie",
+          "x-api-key"
+        ],
+        "redact_text": false
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/PrivacyConfig"
+        }
+      ]
+    },
+    "web": {
+      "default": {
+        "host": "127.0.0.1",
+        "port": 4747
+      },
+      "allOf": [
+        {
+          "$ref": "#/definitions/WebConfig"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "AiConfig": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "default": "auto",
+          "type": "string"
+        },
+        "max_items_per_call": {
+          "default": 40,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "require": {
+          "default": false,
+          "type": "boolean"
+        },
+        "timeout_s": {
+          "default": 300,
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "AssetsConfig": {
+      "type": "object",
+      "properties": {
+        "restricted_dir": {
+          "default": "assets-restricted",
+          "type": "string"
+        },
+        "store": {
+          "default": "all",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CaptureConfig": {
+      "type": "object",
+      "properties": {
+        "rate_limit_rps": {
+          "default": 1.0,
+          "type": "number",
+          "format": "double"
+        },
+        "robots": {
+          "default": "respect",
+          "type": "string"
+        },
+        "schemes": {
+          "default": [
+            "light",
+            "dark"
+          ],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timeout_s": {
+          "default": 60,
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "user_agent": {
+          "default": "default",
+          "type": "string"
+        },
+        "viewports": {
+          "default": [
+            {
+              "dpr": 2.0,
+              "height": 844,
+              "name": "mobile",
+              "width": 390
+            },
+            {
+              "dpr": 2.0,
+              "height": 1024,
+              "name": "tablet",
+              "width": 768
+            },
+            {
+              "dpr": 1.0,
+              "height": 800,
+              "name": "laptop",
+              "width": 1280
+            },
+            {
+              "dpr": 1.0,
+              "height": 1080,
+              "name": "desktop",
+              "width": 1920
+            }
+          ],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ViewportConfig"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExportConfig": {
+      "type": "object",
+      "properties": {
+        "names": {
+          "default": {},
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "LibraryConfig": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "default": "My design library",
+          "type": "string"
+        },
+        "notice_acknowledged": {
+          "default": false,
+          "type": "boolean"
+        },
+        "schema_version": {
+          "default": 1,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "McpConfig": {
+      "type": "object",
+      "properties": {
+        "allow_capture": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PrivacyConfig": {
+      "type": "object",
+      "properties": {
+        "redact_headers": {
+          "default": [
+            "authorization",
+            "cookie",
+            "set-cookie",
+            "x-api-key"
+          ],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "redact_text": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ViewportConfig": {
+      "type": "object",
+      "required": [
+        "dpr",
+        "height",
+        "name",
+        "width"
+      ],
+      "properties": {
+        "dpr": {
+          "type": "number",
+          "format": "double"
+        },
+        "height": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "name": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "WebConfig": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "default": "127.0.0.1",
+          "type": "string"
+        },
+        "port": {
+          "default": 4747,
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
