@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/specimen-core",
+    "crates/specimen-capture",
+    "crates/specimen-extract",
+    "crates/specimen-library",
+    "crates/specimen-agent",
+    "crates/specimen-export",
+    "crates/specimen-server",
+    "crates/specimen-mcp",
+    "crates/specimen-cli",
+    "xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Specimen Contributors"]
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+thiserror = "2.0"
+schemars = { version = "0.8" }
+sha2 = "0.10"
+toml = "0.8"

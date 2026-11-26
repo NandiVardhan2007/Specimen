@@ -1,0 +1,11 @@
+[package]
+name = "specimen-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+specimen-core = { path = "../specimen-core" }
+specimen-library = { path = "../specimen-library" }
+specimen-export = { path = "../specimen-export" }
